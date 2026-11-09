@@ -161,10 +161,10 @@ public final class TeamsAutoTest {
         step("created", () -> check("команда создана, игрок лидер", TeamClient.team != null && TeamClient.team.members.get(mc().player.getUUID()).role == Role.LEADER), 2);
         step("seed", () -> server(TeamsAutoTest::seed), 10);
         step("cards", () -> {
-            works.repka.ryscore.team.TeamCards.register(() -> new works.repka.ryscore.team.TeamCards.Card(net.minecraft.resources.ResourceLocation.parse("rysquests:quests"),
-                Component.literal("RYSQuests"), List.of(Component.literal("41 / 68 · 2 награды к получению")), Component.literal("Открыть книгу"), () -> {}, false));
-            works.repka.ryscore.team.TeamCards.register(() -> new works.repka.ryscore.team.TeamCards.Card(net.minecraft.resources.ResourceLocation.parse("ryspulse:pulse"),
-                Component.literal("RYSPulse"), List.of(Component.literal("База «Дом» · энергия 68 % · плавильня ×2 встала")), null, null, true));
+            works.repka.ryscore.team.TeamCards.registerDetailed(() -> new works.repka.ryscore.team.TeamCards.Detailed(new works.repka.ryscore.team.TeamCards.Card(net.minecraft.resources.ResourceLocation.parse("rysquests:quests"),
+                Component.literal("RYSQuests"), List.of(Component.literal("41 / 68 · 2 награды к получению · Lena на «Пламя», Vasya закрыл «Динамо»")), Component.literal("Открыть книгу · K"), () -> {}, false), Component.literal("глава II"), 0.6f));
+            works.repka.ryscore.team.TeamCards.registerDetailed(() -> new works.repka.ryscore.team.TeamCards.Detailed(new works.repka.ryscore.team.TeamCards.Card(net.minecraft.resources.ResourceLocation.parse("ryspulse:pulse"),
+                Component.literal("RYSPulse"), List.of(Component.literal("База «Дом» · энергия 68 %, хватит на 12 мин · плавильня ×2 встала · ближе всех Vasya (14 м)")), Component.literal("Открыть базу · P"), () -> {}, true), Component.literal("2 тревоги"), -1f));
         }, 2);
         step("note", () -> {
             CompoundTag a = new CompoundTag();

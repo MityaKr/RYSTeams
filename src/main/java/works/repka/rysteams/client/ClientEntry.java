@@ -30,7 +30,7 @@ public final class ClientEntry {
     public static final KeyMapping OPEN = new KeyMapping("key.rysteams.open", KeyConflictContext.IN_GAME, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_G, CATEGORY);
     /** Средняя кнопка занята выбором блока, поэтому пинг на V. */
     public static final KeyMapping PING = new KeyMapping("key.rysteams.ping", KeyConflictContext.IN_GAME, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_V, CATEGORY);
-    public static final String[] PING_KINDS = {"here", "danger", "resource", "help"};
+    public static final String[] PING_KINDS = {"here", "danger", "resource", "help", "mark"};
 
     public static final ModConfigSpec CLIENT_SPEC;
     public static final ModConfigSpec.BooleanValue SHOW_HUD;
@@ -88,6 +88,11 @@ public final class ClientEntry {
         Minecraft mc = Minecraft.getInstance();
         if (TeamClient.team == null || !TeamClient.can(Permission.PING) || mc.player == null) return;
         String kind = pingHeld ? PING_KINDS[pingChoice] : PING_KINDS[0];
+        if (kind.equals("mark")) {
+            pingChoice = 0;
+            mc.setScreen(TeamScreen.onMarks());
+            return;
+        }
         HitResult hit = mc.player.pick(256, 1f, false);
         if (!(hit instanceof BlockHitResult block) || hit.getType() == HitResult.Type.MISS) return;
         CompoundTag t = new CompoundTag();
@@ -109,7 +114,7 @@ public final class ClientEntry {
     private static void onKey(InputEvent.Key e) {
         Minecraft mc = Minecraft.getInstance();
         if (e.getAction() != GLFW.GLFW_PRESS || mc.screen != null || mc.player == null) return;
-        if (e.getKey() != GLFW.GLFW_KEY_Y && e.getKey() != GLFW.GLFW_KEY_N) return;
+        if (e.getKey() != GLFW.GLFW_KEY_Y && e.getKey() != GLFW.GLFW_KEY_N && e.getKey() != GLFW.GLFW_KEY_U) return;
         Player target = TeamHud.lookedAtPlayer();
         if (target != null && e.getKey() == GLFW.GLFW_KEY_Y && TeamClient.can(Permission.INVITE)) {
             TeamClient.action("invite", "player", target.getUUID());
@@ -118,7 +123,7 @@ public final class ClientEntry {
         if (TeamClient.invites.isEmpty()) return;
         CompoundTag t = new CompoundTag();
         t.putUUID("team", TeamClient.invites.get(0).id());
-        t.putString("answer", e.getKey() == GLFW.GLFW_KEY_Y ? "accept" : "no");
+        t.putString("answer", e.getKey() == GLFW.GLFW_KEY_Y ? "accept" : e.getKey() == GLFW.GLFW_KEY_U ? "fresh" : "no");
         TeamClient.action("invite_reply", t);
     }
 }

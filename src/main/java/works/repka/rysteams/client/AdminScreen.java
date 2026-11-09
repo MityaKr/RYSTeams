@@ -118,8 +118,8 @@ public final class AdminScreen extends Screen {
     private void row(GuiGraphics g, Theme t, Row r, int x, int y, int w, String sub) {
         t.card(g, x, y, w, 22);
         Draw.round(g, x + 4, y + 5, 12, 12, 3f, TeamHud.rgb(r.color));
-        Draw.text(g, Draw.ellipsize(r.name, w - 92), x + 21, y + 3, t.c("text.primary"));
-        Draw.textScaled(g, Draw.ellipsize(sub, (int) ((w - 90) / 0.75f)), x + 21, y + 13, 0.75f, t.c("text.muted"));
+        Draw.label(g, Draw.ellipsize(r.name, w - 92, 13, works.repka.ryscore.ui.Type.Weight.SEMIBOLD), x + 21, y + 7, 13, works.repka.ryscore.ui.Type.Weight.SEMIBOLD, t.c("text.primary"));
+        Draw.label(g, Draw.ellipsize(sub, w - 90, 11, works.repka.ryscore.ui.Type.Weight.REGULAR), x + 21, y + 16, 11, works.repka.ryscore.ui.Type.Weight.REGULAR, t.c("text.muted"));
     }
 
     private boolean over(int x, int y, int w, int h) {

@@ -7,14 +7,13 @@ import java.util.UUID;
 import net.minecraft.client.Camera;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.PlayerFaceRenderer;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.resources.DefaultPlayerSkin;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.fml.ModList;
@@ -25,6 +24,8 @@ import org.lwjgl.glfw.GLFW;
 import works.repka.ryscore.theme.Theme;
 import works.repka.ryscore.theme.ThemeManager;
 import works.repka.ryscore.ui.Draw;
+import works.repka.ryscore.ui.Icons;
+import works.repka.ryscore.ui.Type.Weight;
 import works.repka.rysteams.data.Team;
 
 /** Всё, что видно поверх мира: участники, метки и пинги, приглашение, карточка игрока, панель подписей. */
@@ -79,12 +80,12 @@ public final class TeamHud {
     /** Карта в углу занимает правый верх, панель встаёт под неё. */
     private static int hudTop() {
         ModList mods = ModList.get();
-        return mods.isLoaded("ftbchunks") || mods.isLoaded("journeymap") || mods.isLoaded("xaerominimap") ? 90 : 6;
+        return mods.isLoaded("ftbchunks") || mods.isLoaded("journeymap") || mods.isLoaded("xaerominimap") ? 90 : 10;
     }
 
-    private static void members(GuiGraphics g, Theme theme, Minecraft mc, Team team) {
+    private static void members(GuiGraphics g, Theme t, Minecraft mc, Team team) {
         List<Team.Member> shown = new ArrayList<>();
-        int online = 0;
+        int online = 1;
         for (Team.Member m : team.members.values()) {
             if (m.id.equals(mc.player.getUUID())) continue;
             if (TeamClient.PRESENCE.containsKey(m.id)) {
@@ -97,57 +98,78 @@ public final class TeamHud {
         if (shown.isEmpty()) return;
         int visible = Math.min(HUD_ROWS, shown.size());
         int more = shown.size() - visible;
-        int h = 16 + visible * 20 + (more > 0 ? 10 : 0) + 2;
-        int x = g.guiWidth() - HUD_W - 6, y = hudTop();
-        Draw.roundBox(g, x, y, HUD_W, h, theme.beveled() ? 0 : theme.r("panel.radius"), Draw.alpha(theme.c("hud.bg"), 0.92f), theme.c("hud.border"));
-        int headerColor = theme.beveled() ? 0xFFFFFFFF : theme.c("text.primary");
-        int muted = theme.beveled() ? 0xFFC0C0C0 : theme.c("text.muted");
-        Draw.round(g, x + 5, y + 5, 7, 7, 2f, rgb(team.color));
-        Draw.text(g, Draw.ellipsize(team.name, HUD_W - 62), x + 15, y + 5, headerColor);
-        String count = tr("rysteams.hud.online", online + 1);
-        Draw.textScaled(g, count, x + HUD_W - 6 - mc.font.width(count) * 0.75f, y + 6, 0.75f, muted);
-        int rowY = y + 16;
-        for (int i = 0; i < visible; i++) {
-            Team.Member m = shown.get(i);
-            row(g, theme, mc, team, m, x + 3, rowY, HUD_W - 6, headerColor, muted);
-            rowY += 20;
+        int h = 6 + 9 + visible * 23 + 3 + 8 + 6;
+        int x = g.guiWidth() - HUD_W - 10, y = hudTop();
+        Draw.roundBox(g, x, y, HUD_W, h, t.beveled() ? 0 : 6f, Draw.alpha(t.c("hud.bg"), 0.92f), t.c("hud.border"));
+        int text = t.beveled() ? 0xFFFFFFFF : t.c("text.primary");
+        int muted = t.beveled() ? 0xFFC0C0C0 : t.c("text.muted");
+        int dim = t.beveled() ? 0xFFA0A0A0 : t.c("text.dim");
+        Draw.round(g, x + 6, y + 6, 9, 9, 2.5f, rgb(team.color));
+        ItemStack icon = TeamClient.icon(team.icon);
+        if (!icon.isEmpty()) {
+            g.pose().pushPose();
+            g.pose().translate(x + 7.5f, y + 7.5f, 0);
+            g.pose().scale(0.375f, 0.375f, 1f);
+            g.renderItem(icon, 0, 0);
+            g.pose().popPose();
         }
-        if (more > 0) Draw.textScaled(g, "+" + more, x + 8, rowY + 1, 0.75f, muted);
+        float cy = y + 10.5f;
+        String name = Draw.ellipsize(team.name, HUD_W - 70, 12.5f, Weight.SEMIBOLD);
+        Draw.label(g, name, x + 19, cy, 12.5f, Weight.SEMIBOLD, text);
+        float nameW = Draw.labelWidth(name, 12.5f, Weight.SEMIBOLD);
+        Draw.label(g, " · " + tr("rysteams.count.online", online), x + 19 + nameW, cy, 11, Weight.REGULAR, muted);
+        String key = ClientEntry.OPEN.getTranslatedKeyMessage().getString();
+        Draw.label(g, key, x + HUD_W - 6 - Draw.labelWidth(key, 11, Weight.REGULAR), cy, 11, Weight.REGULAR, dim);
+        int rowY = y + 6 + 9 + 3;
+        for (int i = 0; i < visible; i++) {
+            row(g, t, mc, team, shown.get(i), x + 6, rowY, HUD_W - 12, text, muted, dim);
+            rowY += 23;
+        }
+        String left = more > 0 ? "+" + more : tr("rysteams.hud.open", key);
+        String right = tr("rysteams.hud.ping", ClientEntry.PING.getTranslatedKeyMessage().getString());
+        float hy = rowY + 3.5f;
+        Draw.label(g, left, x + 6, hy, 10.5f, Weight.REGULAR, dim);
+        Draw.label(g, right, x + HUD_W - 6 - Draw.labelWidth(right, 10.5f, Weight.REGULAR), hy, 10.5f, Weight.REGULAR, dim);
     }
 
-    private static void row(GuiGraphics g, Theme theme, Minecraft mc, Team team, Team.Member m, int x, int y, int w, int textColor, int muted) {
+    private static void row(GuiGraphics g, Theme t, Minecraft mc, Team team, Team.Member m, int x, int y, int w, int text, int muted, int dim) {
         TeamClient.Pres p = TeamClient.PRESENCE.get(m.id);
-        Draw.round(g, x, y, w, 18, 3f, Draw.alpha(theme.c("slot.bg"), 0.7f));
-        Draw.roundBorder(g, x + 3, y + 2, 14, 14, 2f, rgb(team.color), 1f);
-        face(g, m.id, x + 4, y + 3, 12);
-        Draw.dot(g, x + 13, y + 12, 5, theme.c(p != null ? "state.ok" : "text.dim"));
-        String line;
-        String right = "";
+        float alpha = p != null ? 1f : 0.55f;
+        Draw.round(g, x, y, w, 20, 4f, Draw.alpha(t.c("status.bg"), t.beveled() ? 0.8f : 1f));
+        Draw.roundBorder(g, x + 4, y + 3.5f, 13, 13, 3f, Draw.alpha(rgb(team.color), alpha), 1f);
+        face(g, m.id, x + 5, y + 4, 11);
+        if (p == null) Draw.rect(g, x + 5, y + 4, 11, 11, Draw.alpha(t.c("status.bg"), 0.45f));
+        Draw.dot(g, x + 13, y + 13, 6, t.c("status.bg"));
+        Draw.dot(g, x + 14, y + 14, 4, t.c(p != null ? "state.ok" : "text.dim"));
+        String line, metres = "", arrow = "";
         if (p == null) {
             line = tr("rysteams.status.offline");
         } else {
             line = p.status().isEmpty() ? dimensionName(p.dimension()) : p.status();
-            right = distance(mc, p);
+            String[] d = distance(mc, p);
+            metres = d[0];
+            arrow = d[1];
         }
-        float rightW = mc.font.width(right) * 0.75f;
-        Draw.text(g, Draw.ellipsize(m.name, w - 26), x + 21, y + 2, p != null ? textColor : muted);
-        Draw.textScaled(g, Draw.ellipsize(line, (int) ((w - 26 - rightW - 4) / 0.75f)), x + 21, y + 11, 0.75f, muted);
-        if (!right.isEmpty()) Draw.textScaled(g, right, x + w - 3 - rightW, y + 11, 0.75f, muted);
+        float rightW = metres.isEmpty() ? 0 : Draw.labelWidth(metres, 11.5f, Weight.REGULAR);
+        Draw.label(g, Draw.ellipsize(m.name, w - 22 - rightW - 5, 12, Weight.REGULAR), x + 21, y + 6.5f, 12, Weight.REGULAR, Draw.alpha(text, alpha));
+        Draw.label(g, Draw.ellipsize(line, w - 22 - rightW - 5, 10.5f, Weight.REGULAR), x + 21, y + 14f, 10.5f, Weight.REGULAR, muted);
+        if (!metres.isEmpty()) Draw.label(g, metres, x + w - 4 - Draw.labelWidth(metres, 11.5f, Weight.REGULAR), y + 6.5f, 11.5f, Weight.REGULAR, t.c("button.fg"));
+        if (!arrow.isEmpty()) Icons.drawRotated(g, Icons.Shape.ARROW, x + w - 4 - 7f, y + 10.5f, 7f, Float.parseFloat(arrow), dim);
     }
 
     /** Расстояние и стрелка: относительно того, куда смотрит игрок. */
-    private static String distance(Minecraft mc, TeamClient.Pres p) {
-        if (!p.hasPos() || !p.dimension().equals(mc.level.dimension().location().toString())) return "";
+    private static String[] distance(Minecraft mc, TeamClient.Pres p) {
+        if (!p.hasPos() || !p.dimension().equals(mc.level.dimension().location().toString())) return new String[] {"", ""};
         double dx = p.x() + 0.5 - mc.player.getX(), dz = p.z() + 0.5 - mc.player.getZ();
         int metres = (int) Math.round(Math.sqrt(dx * dx + dz * dz));
         double angle = Math.toDegrees(Math.atan2(dz, dx)) - 90 - mc.player.getYRot();
-        String[] arrows = {"↑", "↗", "→", "↘", "↓", "↙", "←", "↖"};
-        return tr("rysteams.unit.m", metres) + " " + arrows[Math.floorMod(Math.round((float) (angle / 45)), 8)];
+        // значок стрелки смотрит вправо, поэтому поворот отсчитывается от правого направления
+        return new String[] {tr("rysteams.unit.m", metres), Float.toString((float) (angle - 90))};
     }
 
     // --- метки и пинги в мире ---
 
-    private static void worldMarkers(GuiGraphics g, Theme theme, Minecraft mc) {
+    private static void worldMarkers(GuiGraphics g, Theme t, Minecraft mc) {
         String dim = mc.level.dimension().location().toString();
         long now = System.currentTimeMillis();
         Team team = TeamClient.team;
@@ -155,50 +177,84 @@ public final class TeamHud {
             for (Team.Mark m : team.marks) {
                 if (!m.dimension().equals(dim) || dist(mc, m.x(), m.z()) > MARK_RANGE) continue;
                 int[] s = project(mc, g, m.x() + 0.5, m.y() + 1.5, m.z() + 0.5);
-                if (s == null) continue;
-                label(g, theme, mc, s, m.name() + " · " + tr("rysteams.unit.m", dist(mc, m.x(), m.z())), "", theme.c("card.border"), theme.c("text.muted"), TeamClient.icon(m.icon()));
+                if (s != null) markLabel(g, t, mc, s, m);
             }
         }
         for (TeamClient.Ping p : TeamClient.PINGS) {
             if (!p.dimension().equals(dim)) continue;
             int[] s = project(mc, g, p.x() + 0.5, p.y() + 1.2, p.z() + 0.5);
-            if (s == null) continue;
-            String title = p.by() + ": " + tr("rysteams.ping." + p.kind());
-            String sub = tr("rysteams.unit.m", dist(mc, p.x(), p.z())) + " · " + tr("rysteams.unit.s", (p.until() - now) / 1000);
-            Draw.roundBorder(g, s[0] - 14, s[1] + 4, 28, 8, 4f, Draw.alpha(rgb(p.color()), 0.6f), 1f);
-            label(g, theme, mc, s, title, sub, rgb(p.color()), rgb(p.color()), null);
+            if (s != null) pingLabel(g, t, mc, s, p, now);
         }
         TeamClient.Waypoint w = TeamClient.waypoint;
         if (w != null && w.dimension().equals(dim)) {
             int[] s = project(mc, g, w.x() + 0.5, w.y() + 1.2, w.z() + 0.5);
-            if (s != null) label(g, theme, mc, s, w.label() + " · " + tr("rysteams.unit.m", dist(mc, w.x(), w.z())), "", rgb(w.color()), rgb(w.color()), null);
+            if (s != null) {
+                String title = w.label() + " · " + tr("rysteams.unit.m", dist(mc, w.x(), w.z()));
+                int width = (int) Math.ceil(Draw.labelWidth(title, 11.5f, Weight.REGULAR)) + 9;
+                Draw.roundBox(g, s[0] - width / 2f, s[1] - 18, width, 12, 4f, Draw.alpha(t.c("hud.bg"), 0.9f), rgb(w.color()));
+                Draw.label(g, title, s[0] - width / 2f + 4.5f, s[1] - 12, 11.5f, Weight.REGULAR, t.c("text.primary"));
+                triangle(g, s[0], s[1] - 5, 7, 5, rgb(w.color()));
+            }
         }
+    }
+
+    private static void triangle(GuiGraphics g, int cx, int y, int w, int h, int color) {
+        for (int i = 0; i < h; i++) {
+            float rowW = w * (1f - i / (float) h);
+            Draw.round(g, cx - rowW / 2f, y + i, rowW, 1, 0.02f, color);
+        }
+    }
+
+    private static void pingLabel(GuiGraphics g, Theme t, Minecraft mc, int[] s, TeamClient.Ping p, long now) {
+        String title = p.by() + ": " + tr("rysteams.ping." + p.kind()).toLowerCase(java.util.Locale.ROOT);
+        String sub = tr("rysteams.unit.m", dist(mc, p.x(), p.z())) + " · " + tr("rysteams.unit.s", (p.until() - now) / 1000);
+        int text = (int) Math.ceil(Math.max(Draw.labelWidth(title, 12, Weight.REGULAR), Draw.labelWidth(sub, 10.5f, Weight.REGULAR)));
+        int width = 5 + 9 + 4 + text + 5, height = 19;
+        int color = rgb(p.color());
+        int ringY = s[1] + 3;
+        Draw.roundBorder(g, s[0] - 10, ringY, 20, 7, 3.5f, Draw.alpha(color, 0.6f), 1f);
+        triangle(g, s[0], ringY - 7, 8, 6, color);
+        float x = s[0] - width / 2f, y = ringY - 8 - height;
+        Draw.roundBox(g, x, y, width, height, 4f, Draw.alpha(t.c("hud.bg"), 0.94f), color);
+        Draw.dot(g, (int) x + 5, (int) y + 5, 9, color);
+        String initial = p.by().substring(0, 1).toUpperCase(java.util.Locale.ROOT);
+        Draw.label(g, initial, x + 5 + 4.5f - Draw.labelWidth(initial, 10, Weight.SEMIBOLD) / 2f, y + 9.5f, 10, Weight.SEMIBOLD, 0xFFFFFFFF);
+        Draw.label(g, title, x + 18, y + 6.5f, 12, Weight.REGULAR, t.c("text.primary"));
+        Draw.label(g, sub, x + 18, y + 14f, 10.5f, Weight.REGULAR, t.c("text.muted"));
+    }
+
+    private static void markLabel(GuiGraphics g, Theme t, Minecraft mc, int[] s, Team.Mark m) {
+        boolean pulse = "pulse".equals(m.source());
+        String title = m.name() + " · " + tr("rysteams.unit.m", dist(mc, m.x(), m.z()));
+        float textW = Draw.labelWidth(title, 11.5f, Weight.REGULAR);
+        String chip = pulse ? tr("rysteams.source.pulse") : "";
+        float lead = pulse ? Draw.labelWidth(chip, 10, Weight.SEMIBOLD) + 5 + 4 : 7 + 4;
+        int width = (int) Math.ceil(4.5f + lead + textW + 4.5f), height = 12;
+        float x = s[0] - width / 2f, y = s[1] - 6 - height;
+        int alpha = 230;
+        Draw.roundBox(g, x, y, width, height, 4f, Draw.alpha(t.c("hud.bg"), 0.9f), pulse ? t.c("src.pulse.border") : t.c("hud.border"));
+        if (pulse) {
+            float cw = Draw.labelWidth(chip, 10, Weight.SEMIBOLD) + 5;
+            Draw.round(g, x + 4.5f, y + 2.75f, cw, 6.5f, 3.25f, t.c("src.pulse.bg"));
+            Draw.label(g, chip, x + 7, y + 6, 10, Weight.SEMIBOLD, t.c("state.bad"));
+        } else {
+            ItemStack icon = TeamClient.icon(m.icon());
+            Draw.round(g, x + 4.5f, y + 2.5f, 7, 7, 1.5f, Draw.alpha(t.c("slot.bg"), 0.9f));
+            if (!icon.isEmpty()) {
+                g.pose().pushPose();
+                g.pose().translate(x + 4.5f, y + 2.5f, 0);
+                g.pose().scale(0.4375f, 0.4375f, 1f);
+                g.renderItem(icon, 0, 0);
+                g.pose().popPose();
+            }
+        }
+        Draw.label(g, title, x + 4.5f + lead, y + 6, 11.5f, Weight.REGULAR, Draw.alpha(t.c("text.primary"), alpha / 255f));
+        triangle(g, s[0], (int) (y + height + 1), 7, 5, pulse ? t.c("state.bad") : t.c("text.muted"));
     }
 
     private static int dist(Minecraft mc, int x, int z) {
         double dx = x + 0.5 - mc.player.getX(), dz = z + 0.5 - mc.player.getZ();
         return (int) Math.round(Math.sqrt(dx * dx + dz * dz));
-    }
-
-    private static void label(GuiGraphics g, Theme theme, Minecraft mc, int[] s, String title, String sub,
-                              int border, int arrow, @Nullable net.minecraft.world.item.ItemStack icon) {
-        Font font = mc.font;
-        int iconW = icon != null && !icon.isEmpty() ? 11 : 0;
-        int w = Math.max(font.width(title), (int) (font.width(sub) * 0.75f)) + 10 + iconW;
-        int h = sub.isEmpty() ? 13 : 21;
-        int x = s[0] - w / 2, y = s[1] - h - 5;
-        Draw.roundBox(g, x, y, w, h, 3f, Draw.alpha(theme.c("hud.bg"), 0.92f), border);
-        int text = theme.beveled() ? 0xFFFFFFFF : theme.c("text.primary");
-        if (iconW > 0) {
-            g.pose().pushPose();
-            g.pose().translate(x + 3, y + 2, 0);
-            g.pose().scale(0.56f, 0.56f, 1f);
-            g.renderItem(icon, 0, 0);
-            g.pose().popPose();
-        }
-        Draw.text(g, title, x + 5 + iconW, y + 3, text);
-        if (!sub.isEmpty()) Draw.textScaled(g, sub, x + 5, y + 12, 0.75f, theme.beveled() ? 0xFFC0C0C0 : theme.c("text.muted"));
-        for (int i = 0; i < 4; i++) Draw.rect(g, s[0] - 3 + i, y + h + i, 7 - i * 2, 1, arrow);
     }
 
     /** Точка мира в координатах GUI; за спиной null, за краем прижимается к краю. */
@@ -231,104 +287,157 @@ public final class TeamHud {
         return mc.crosshairPickEntity instanceof Player p && p != mc.player ? p : null;
     }
 
-    private static void playerCard(GuiGraphics g, Theme theme, Minecraft mc) {
+    private static void playerCard(GuiGraphics g, Theme t, Minecraft mc) {
         Player target = lookedAtPlayer();
         if (target == null) return;
         boolean free = false;
         for (TeamClient.Online o : TeamClient.online) if (o.id().equals(target.getUUID())) free = o.free();
         String title = target.getGameProfile().getName() + (free ? " · " + tr("rysteams.card.free") : "");
         String sub = tr("rysteams.card.hint", (int) mc.player.distanceTo(target));
-        String hint = free && TeamClient.can(works.repka.rysteams.api.Permission.INVITE) ? tr("rysteams.card.invite") : "";
-        int w = Math.max(mc.font.width(title), mc.font.width(sub)) + 14 + (hint.isEmpty() ? 0 : mc.font.width(hint) + 18);
-        int x = (g.guiWidth() - w) / 2, y = g.guiHeight() / 2 + 14;
-        Draw.roundBox(g, x, y, w, 25, theme.r("panel.radius"), Draw.alpha(theme.c("hud.bg"), 0.94f), theme.c("hud.border"));
-        Draw.text(g, title, x + 7, y + 4, theme.beveled() ? 0xFFFFFFFF : theme.c("text.primary"));
-        Draw.textScaled(g, sub, x + 7, y + 14, 0.75f, theme.beveled() ? 0xFFC0C0C0 : theme.c("text.muted"));
-        if (!hint.isEmpty()) {
-            int bw = mc.font.width(hint) + 10, bx = x + w - bw - 6;
-            theme.button(g, bx, y + 5, bw, 15, false, true);
-            Draw.text(g, hint, bx + 5, y + 9, theme.c("accent.text"));
+        boolean invite = free && TeamClient.can(works.repka.rysteams.api.Permission.INVITE);
+        String inviteLabel = tr("rysteams.card.invite"), pingLabel = tr("rysteams.card.ping", ClientEntry.PING.getTranslatedKeyMessage().getString());
+        int textW = (int) Math.ceil(Math.max(Draw.labelWidth(title, 12.5f, Weight.SEMIBOLD), Draw.labelWidth(sub, 11, Weight.REGULAR)));
+        int iw = invite ? (int) Math.ceil(Draw.labelWidth(inviteLabel, 12, Weight.SEMIBOLD)) + 12 : 0;
+        int pw = (int) Math.ceil(Draw.labelWidth(pingLabel, 12, Weight.REGULAR)) + 10;
+        int w = 6 + textW + 5 + iw + (invite ? 3 : 0) + pw + 6, h = 23;
+        int[] anchor = project(mc, g, target.getX(), target.getY() + target.getBbHeight() + 0.55, target.getZ());
+        int x = anchor == null ? (g.guiWidth() - w) / 2 : anchor[0] - w / 2;
+        int y = anchor == null ? g.guiHeight() / 2 + 14 : Math.max(10, anchor[1] - h);
+        x = Math.max(4, Math.min(g.guiWidth() - w - 4, x));
+        Draw.roundBox(g, x, y, w, h, 6f, Draw.alpha(t.c("hud.bg"), 0.94f), t.c("hud.border"));
+        Draw.label(g, title, x + 6, y + 7.5f, 12.5f, Weight.SEMIBOLD, t.beveled() ? 0xFFFFFFFF : t.c("text.primary"));
+        Draw.label(g, sub, x + 6, y + 15.5f, 11, Weight.REGULAR, t.beveled() ? 0xFFC0C0C0 : t.c("text.muted"));
+        int bx = x + 6 + textW + 5;
+        if (invite) {
+            Draw.round(g, bx, y + 4, iw, 15, 4f, t.c("accent"));
+            Draw.label(g, inviteLabel, bx + 6, y + 11.5f, 12, Weight.SEMIBOLD, t.c("accent.text"));
+            bx += iw + 3;
         }
+        Draw.roundBox(g, bx, y + 4, pw, 15, 4f, t.c("button.bg"), t.c("button.border"));
+        Draw.label(g, pingLabel, bx + 5, y + 11.5f, 12, Weight.REGULAR, t.c("text.primary"));
     }
 
     // --- панель подписей пинга ---
 
-    private static void pingBar(GuiGraphics g, Theme theme, Minecraft mc) {
-        Font font = mc.font;
-        String caption = tr("rysteams.ping.bar");
-        int w = font.width(caption) + 18;
+    private static void pingBar(GuiGraphics g, Theme t, Minecraft mc) {
+        String caption = tr("rysteams.ping.bar"), wheel = tr("rysteams.ping.wheel");
         String[] kinds = ClientEntry.PING_KINDS;
-        int[] widths = new int[kinds.length];
+        float w = 5 + 3 + Draw.labelWidth(caption, 11, Weight.REGULAR) + 3 + 3;
+        float[] widths = new float[kinds.length];
         for (int i = 0; i < kinds.length; i++) {
-            widths[i] = font.width(tr("rysteams.ping." + kinds[i])) + 12;
+            widths[i] = (float) Math.ceil(Draw.labelWidth(pingName(kinds[i]), 12, i == ClientEntry.pingChoice ? Weight.SEMIBOLD : Weight.REGULAR)) + 12;
             w += widths[i] + 3;
         }
-        int x = (g.guiWidth() - w) / 2, y = g.guiHeight() - 62;
-        Draw.roundBox(g, x, y, w, 20, 10f, Draw.alpha(theme.c("hud.bg"), 0.94f), theme.c("hud.border"));
-        Draw.text(g, caption, x + 8, y + 6, theme.beveled() ? 0xFFC0C0C0 : theme.c("text.muted"));
-        int bx = x + 12 + font.width(caption);
+        w += 3 + Draw.labelWidth(wheel, 10.5f, Weight.REGULAR) + 3 + 5;
+        int width = (int) Math.ceil(w), height = 21;
+        int x = (g.guiWidth() - width) / 2, y = g.guiHeight() - 50 - height;
+        Draw.roundBox(g, x, y, width, height, 10.5f, Draw.alpha(t.c("hud.bg"), 0.94f), t.c("hud.border"));
+        float cy = y + height / 2f;
+        Draw.label(g, caption, x + 8, cy, 11, Weight.REGULAR, t.beveled() ? 0xFFC0C0C0 : t.c("text.muted"));
+        float bx = x + 5 + 3 + Draw.labelWidth(caption, 11, Weight.REGULAR) + 6;
         for (int i = 0; i < kinds.length; i++) {
             boolean active = i == ClientEntry.pingChoice;
-            theme.button(g, bx, y + 3, widths[i], 14, false, active);
-            Draw.text(g, tr("rysteams.ping." + kinds[i]), bx + 6, y + 6, active ? theme.c("accent.text") : theme.c("text.body"));
+            if (active) Draw.round(g, bx, y + 4, widths[i], 13, 6.5f, t.c("accent"));
+            else Draw.roundBox(g, bx, y + 4, widths[i], 13, 6.5f, t.c("button.bg"), t.c("button.border"));
+            Draw.label(g, pingName(kinds[i]), bx + 6, cy, 12, active ? Weight.SEMIBOLD : Weight.REGULAR, active ? t.c("accent.text") : t.c("text.primary"));
             bx += widths[i] + 3;
         }
+        Draw.label(g, wheel, bx + 3, cy, 10.5f, Weight.REGULAR, t.beveled() ? 0xFFA0A0A0 : t.c("text.dim"));
+    }
+
+    private static String pingName(String kind) {
+        String name = tr("rysteams.ping." + kind);
+        return name.substring(0, 1).toUpperCase(java.util.Locale.ROOT) + name.substring(1);
     }
 
     // --- приглашение и уведомления ---
 
-    private static void invite(GuiGraphics g, Theme theme, Minecraft mc) {
+    private static void invite(GuiGraphics g, Theme t, Minecraft mc) {
         if (TeamClient.invites.isEmpty() || mc.screen instanceof TeamScreen) return;
         TeamClient.Info invite = TeamClient.invites.get(0);
-        Font font = mc.font;
-        int w = 170, x = g.guiWidth() - w - 6, y = 6 + (mc.screen == null ? hudTop() - 6 : 0);
-        int textW = w - 16;
-        List<FormattedCharSequence> body = font.split(Component.translatable("rysteams.invite.progress"), (int) (textW / 0.75f));
-        int h = 24 + body.size() * 8 + 26;
+        int w = 180, x = g.guiWidth() - w - 10, y = mc.screen == null ? hudTop() : 10;
+        int inner = w - 14;
+        List<String> first = Draw.wrapLabel(tr("rysteams.invite.progress"), inner - 12, 12, Weight.REGULAR, 3);
+        List<String> second = Draw.wrapLabel(tr("rysteams.invite.keep"), inner - 12, 12, Weight.REGULAR, 2);
+        int boxH = (first.size() + second.size()) * 8 + 11;
+        int h = 7 + 20 + 5 + boxH + 5 + 19 + 7;
         g.pose().pushPose();
         g.pose().translate(0, 0, 350);
-        theme.panel(g, x, y, w, h);
-        Draw.round(g, x + 7, y + 6, 14, 14, 3f, rgb(invite.color()));
-        g.pose().pushPose();
-        g.pose().translate(x + 9, y + 8, 0);
-        g.pose().scale(0.625f, 0.625f, 1f);
-        g.renderItem(TeamClient.icon(invite.icon()), 0, 0);
-        g.pose().popPose();
-        Draw.text(g, Draw.ellipsize(tr("rysteams.invite.title", invite.by(), invite.name()), w - 34), x + 25, y + 5, theme.c("text.primary"));
-        long left = Math.max(0, (invite.until() - System.currentTimeMillis()) / 1000);
-        Draw.textScaled(g, tr("rysteams.invite.sub", invite.count(), left / 60, String.format("%02d", left % 60)), x + 25, y + 15, 0.75f, theme.c("text.muted"));
-        int ly = y + 25;
-        for (FormattedCharSequence line : body) {
+        if (t.beveled()) {
+            t.panel(g, x, y, w, h);
+        } else {
+            Draw.shadow(g, x, y, w, h, 7f, 0.5f);
+            Draw.roundBox(g, x, y, w, h, 7f, Draw.alpha(t.c("hud.bg"), 0.96f), t.c("hud.border"));
+        }
+        int tileX = x + 7, tileY = y + 7;
+        Draw.round(g, tileX, tileY, 20, 20, 5f, rgb(invite.color()));
+        ItemStack icon = TeamClient.icon(invite.icon());
+        if (!icon.isEmpty()) {
             g.pose().pushPose();
-            g.pose().translate(x + 8, ly, 0);
+            g.pose().translate(tileX + 4, tileY + 4, 0);
             g.pose().scale(0.75f, 0.75f, 1f);
-            g.drawString(font, line, 0, 0, theme.c("text.body"), false);
+            g.renderItem(icon, 0, 0);
             g.pose().popPose();
+        }
+        // имена полужирные, как в макете
+        String[] parts = Component.translatable("rysteams.invite.title", "\u0001", "\u0002").getString().split("[\u0001\u0002]", -1);
+        float tx = tileX + 25, tcy = y + 12f;
+        String[] names = {invite.by(), invite.name()};
+        for (int i = 0; i < parts.length; i++) {
+            Draw.label(g, parts[i], tx, tcy, 13.5f, Weight.REGULAR, t.c("text.primary"));
+            tx += Draw.labelWidth(parts[i], 13.5f, Weight.REGULAR);
+            if (i < names.length && i < parts.length - 1) {
+                Draw.label(g, names[i], tx, tcy, 13.5f, Weight.SEMIBOLD, t.c("text.primary"));
+                tx += Draw.labelWidth(names[i], 13.5f, Weight.SEMIBOLD);
+            }
+        }
+        int members = invite.count();
+        Draw.label(g, tr("rysteams.count.members." + (members == 1 ? "one" : members >= 2 && members <= 4 ? "few" : "many"), members), tileX + 25, y + 21.5f, 11.5f, Weight.REGULAR, t.c("text.muted"));
+        int bx = x + 7, by = y + 7 + 20 + 5;
+        Draw.roundBox(g, bx, by, inner, boxH, 5f, t.c("status.bg"), t.c("status.border"));
+        float ly = by + 8;
+        for (String line : first) {
+            Draw.label(g, line, bx + 6, ly, 12, Weight.REGULAR, t.c("button.fg"));
             ly += 8;
         }
-        int by = y + h - 21;
-        String accept = tr("rysteams.invite.accept"), no = tr("rysteams.invite.no");
-        int aw = font.width(accept) + 14, nw = font.width(no) + 14;
-        theme.button(g, x + 8, by, aw, 15, false, true);
-        Draw.textCentered(g, accept, x + 8 + aw / 2, by + 4, theme.c("accent.text"));
-        theme.button(g, x + 8 + aw + 4, by, nw, 15, false, false);
-        Draw.textCentered(g, no, x + 8 + aw + 4 + nw / 2, by + 4, theme.c("text.body"));
+        for (String line : second) {
+            Draw.label(g, line, bx + 6, ly, 12, Weight.REGULAR, t.c("text.muted"));
+            ly += 8;
+        }
+        int rowY = by + boxH + 5, rx = x + 7;
+        String accept = tr("rysteams.invite.accept"), fresh = tr("rysteams.invite.fresh"), no = tr("rysteams.invite.no");
+        int aw = (int) Math.ceil(Draw.labelWidth(accept, 13, Weight.SEMIBOLD)) + 16;
+        Draw.round(g, rx, rowY, aw, 19, 5f, t.c("accent"));
+        Draw.label(g, accept, rx + 8, rowY + 9.5f, 13, Weight.SEMIBOLD, t.c("accent.text"));
+        rx += aw + 4;
+        int fw = (int) Math.ceil(Draw.labelWidth(fresh, 12.5f, Weight.REGULAR)) + 12;
+        Draw.roundBox(g, rx, rowY, fw, 19, 5f, t.c("button.bg"), t.c("button.border"));
+        Draw.label(g, fresh, rx + 6, rowY + 9.5f, 12.5f, Weight.REGULAR, t.c("text.primary"));
+        rx += fw + 4;
+        int nw = (int) Math.ceil(Draw.labelWidth(no, 12.5f, Weight.REGULAR)) + 12;
+        Draw.roundBorder(g, rx, rowY, nw, 19, 5f, t.c("button.border"));
+        Draw.label(g, no, rx + 6, rowY + 9.5f, 12.5f, Weight.REGULAR, t.c("button.fg"));
+        long left = Math.max(0, (invite.until() - System.currentTimeMillis()) / 1000);
+        String timer = left / 60 + ":" + String.format("%02d", left % 60);
+        Draw.label(g, timer, x + w - 7 - Draw.labelWidth(timer, 11, Weight.REGULAR), rowY + 9.5f, 11, Weight.REGULAR, t.c("text.dim"));
         g.pose().popPose();
     }
 
-    public static void toast(GuiGraphics g, Theme theme, Minecraft mc) {
-        TeamClient.Toast t = TeamClient.toast;
-        if (t == null) return;
-        if (t.until() < System.currentTimeMillis()) {
+    public static void toast(GuiGraphics g, Theme t, Minecraft mc) {
+        TeamClient.Toast toast = TeamClient.toast;
+        if (toast == null) return;
+        if (toast.until() < System.currentTimeMillis()) {
             TeamClient.toast = null;
             return;
         }
-        int w = mc.font.width(t.text()) + 16;
+        String text = toast.text().getString();
+        int w = (int) Math.ceil(Draw.labelWidth(text, 13, Weight.REGULAR)) + 16;
         int x = (g.guiWidth() - w) / 2, y = g.guiHeight() - 76;
         g.pose().pushPose();
         g.pose().translate(0, 0, 400);
-        theme.tooltipBox(g, x, y, w, 16);
-        Draw.text(g, t.text(), x + 8, y + 4, t.bad() ? theme.c("state.bad") : theme.c("text.primary"));
+        t.tooltipBox(g, x, y, w, 16);
+        Draw.label(g, text, x + 8, y + 8, 13, Weight.REGULAR, toast.bad() ? t.c("state.bad") : t.c("text.primary"));
         g.pose().popPose();
     }
+
 }

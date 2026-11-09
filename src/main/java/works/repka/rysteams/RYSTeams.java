@@ -86,6 +86,37 @@ public final class RYSTeams {
         public void post(UUID team, Post post) {
             TeamService.post(team, post);
         }
+
+        @Override
+        public net.minecraft.nbt.CompoundTag getData(UUID team, net.minecraft.resources.ResourceLocation key) {
+            if (!TeamService.running()) return null;
+            Team t = TeamService.store().teams.get(team);
+            return t == null || !t.modData.contains(key.toString()) ? null : t.modData.getCompound(key.toString());
+        }
+
+        @Override
+        public void putData(UUID team, net.minecraft.resources.ResourceLocation key, net.minecraft.nbt.CompoundTag value) {
+            if (!TeamService.running()) return;
+            Team t = TeamService.store().teams.get(team);
+            if (t == null) return;
+            t.modData.put(key.toString(), value);
+            TeamService.store().setDirty();
+        }
+
+        @Override
+        public void setStatus(UUID player, String status) {
+            works.repka.rysteams.server.Presence.setStatus(player, status);
+        }
+
+        @Override
+        public void addTodo(UUID team, net.minecraft.resources.ResourceLocation source, String text) {
+            TeamService.addTodo(team, source.getPath(), text);
+        }
+
+        @Override
+        public void ping(UUID team, String dimension, int x, int y, int z, String kind, String by) {
+            TeamService.pingFromMod(team, dimension, x, y, z, kind, by);
+        }
     }
 
     /** Команды не обязательны: ссылка из чата и действия администратора. */

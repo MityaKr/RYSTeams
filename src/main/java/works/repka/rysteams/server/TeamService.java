@@ -1055,6 +1055,33 @@ public final class TeamService {
         feed(team, post.source().getPath(), post.text(), icon == null ? "" : icon.toString(), post.alert(), "");
     }
 
+    public static void addTodo(UUID teamId, String source, String text) {
+        if (server == null) return;
+        Team team = store().teams.get(teamId);
+        if (team == null) return;
+        team.todos.add(new Team.Todo(UUID.randomUUID(), clip(text), false, "", source));
+        touch(team);
+    }
+
+    public static void pingFromMod(UUID teamId, String dimension, int x, int y, int z, String kind, String by) {
+        if (server == null) return;
+        Team team = store().teams.get(teamId);
+        if (team == null) return;
+        CompoundTag out = new CompoundTag();
+        out.putString("type", "ping");
+        out.putString("by", by);
+        out.putInt("color", team.color);
+        out.putString("kind", kind);
+        out.putString("dim", dimension);
+        out.putInt("x", x);
+        out.putInt("y", y);
+        out.putInt("z", z);
+        for (UUID id : team.members.keySet()) {
+            ServerPlayer target = online(id);
+            if (target != null) ModNetwork.send(target, out);
+        }
+    }
+
     /** Импортированные команды появляются сразу у всех. */
     public static void imported() {
         store().setDirty();
