@@ -1,0 +1,181 @@
+package works.repka.rysteams.client;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
+import org.jetbrains.annotations.Nullable;
+import works.repka.rysteams.api.Permission;
+import works.repka.rysteams.data.Team;
+import works.repka.rysteams.network.ModNetwork;
+
+/** Что клиент знает о командах. Заполняется только сообщениями сервера. */
+public final class TeamClient {
+    public record Info(UUID id, String name, int color, String icon, int count, String join, String by, long until) {}
+
+    public record Online(UUID id, String name, boolean free) {}
+
+    public record Pres(String dimension, boolean hasPos, int x, int y, int z, String status) {}
+
+    public record Ping(String by, int color, String kind, String dimension, int x, int y, int z, long until) {}
+
+    public record Waypoint(String label, int color, String dimension, int x, int y, int z, long until) {}
+
+    public record MergeLine(String source, Component text, boolean question) {}
+
+    public record MergeInfo(Info from, Info into, boolean fromOk, boolean intoOk, List<MergeLine> lines) {}
+
+    public record Toast(Component text, boolean bad, long until) {}
+
+    public static final long PING_MS = 30_000;
+
+    @Nullable public static Team team;
+    public static List<Info> teams = List.of();
+    public static List<Info> invites = List.of();
+    public static List<Info> allies = List.of();
+    public static List<Info> allyOffers = List.of();
+    public static List<Online> online = List.of();
+    public static boolean hideCoords;
+    public static boolean serverMode;
+    public static String restore = "";
+    @Nullable public static MergeInfo merge;
+    public static long undoUntil;
+    public static final Map<UUID, Pres> PRESENCE = new HashMap<>();
+    public static final List<Ping> PINGS = new ArrayList<>();
+    @Nullable public static Waypoint waypoint;
+    @Nullable public static Toast toast;
+    private static final Map<String, ItemStack> ICONS = new HashMap<>();
+    private static final Map<String, Component> TEXTS = new HashMap<>();
+
+    private TeamClient() {}
+
+    public static void reset() {
+        team = null;
+        teams = invites = allies = allyOffers = List.of();
+        online = List.of();
+        merge = null;
+        undoUntil = 0;
+        restore = "";
+        PRESENCE.clear();
+        PINGS.clear();
+        waypoint = null;
+        toast = null;
+    }
+
+    public static void accept(CompoundTag t) {
+        switch (t.getString("type")) {
+            case "state" -> state(t);
+            case "presence" -> presence(t);
+            case "ping" -> PINGS.add(new Ping(t.getString("by"), t.getInt("color"), t.getString("kind"), t.getString("dim"),
+                t.getInt("x"), t.getInt("y"), t.getInt("z"), System.currentTimeMillis() + PING_MS));
+            case "toast" -> toast(text(t.getString("text")), t.getBoolean("bad"));
+            default -> { }
+        }
+    }
+
+    private static Info info(CompoundTag x) {
+        long left = x.getLong("left");
+        return new Info(x.getUUID("id"), x.getString("name"), x.getInt("color"), x.getString("icon"), x.getInt("count"),
+            x.getString("join"), x.getString("by"), left == 0 ? 0 : System.currentTimeMillis() + left);
+    }
+
+    private static List<Info> infos(CompoundTag t, String key) {
+        List<Info> out = new ArrayList<>();
+        for (Tag x : t.getList(key, Tag.TAG_COMPOUND)) out.add(info((CompoundTag) x));
+        return out;
+    }
+
+    private static void state(CompoundTag t) {
+        team = t.contains("team") ? Team.load(t.getCompound("team")) : null;
+        teams = infos(t, "teams");
+        invites = infos(t, "invites");
+        allies = infos(t, "allies");
+        allyOffers = infos(t, "allyOffers");
+        List<Online> people = new ArrayList<>();
+        for (Tag x : t.getList("online", Tag.TAG_COMPOUND)) {
+            CompoundTag c = (CompoundTag) x;
+            people.add(new Online(c.getUUID("id"), c.getString("name"), c.getBoolean("free")));
+        }
+        online = people;
+        hideCoords = t.getBoolean("hide");
+        serverMode = t.getBoolean("serverMode");
+        restore = t.getString("restore");
+        undoUntil = t.contains("undoLeft") ? System.currentTimeMillis() + t.getLong("undoLeft") : 0;
+        if (t.contains("merge")) {
+            CompoundTag m = t.getCompound("merge");
+            List<MergeLine> lines = new ArrayList<>();
+            for (Tag x : m.getList("lines", Tag.TAG_COMPOUND)) {
+                CompoundTag c = (CompoundTag) x;
+                lines.add(new MergeLine(c.getString("src"), text(c.getString("text")), c.getBoolean("q")));
+            }
+            merge = new MergeInfo(info(m.getCompound("from")), info(m.getCompound("into")), m.getBoolean("fromOk"), m.getBoolean("intoOk"), lines);
+        } else {
+            merge = null;
+        }
+    }
+
+    private static void presence(CompoundTag t) {
+        for (Tag x : t.getList("list", Tag.TAG_COMPOUND)) {
+            CompoundTag c = (CompoundTag) x;
+            if (c.getBoolean("gone")) {
+                PRESENCE.remove(c.getUUID("id"));
+            } else {
+                PRESENCE.put(c.getUUID("id"), new Pres(c.getString("dim"), c.getBoolean("pos"), c.getInt("x"), c.getInt("y"), c.getInt("z"), c.getString("status")));
+            }
+        }
+    }
+
+    public static void toast(Component text, boolean bad) {
+        toast = new Toast(text, bad, System.currentTimeMillis() + 3500);
+    }
+
+    public static boolean can(Permission permission) {
+        Minecraft mc = Minecraft.getInstance();
+        return team != null && mc.player != null && team.can(mc.player.getUUID(), permission);
+    }
+
+    public static Component text(String json) {
+        Component known = TEXTS.get(json);
+        if (known != null) return known;
+        if (TEXTS.size() > 1500) TEXTS.clear();
+        Minecraft mc = Minecraft.getInstance();
+        Component c;
+        try {
+            c = mc.level == null ? Component.literal(json) : Component.Serializer.fromJson(json, mc.level.registryAccess());
+        } catch (RuntimeException e) {
+            c = Component.literal(json);
+        }
+        if (c == null) c = Component.empty();
+        if (mc.level != null) TEXTS.put(json, c);
+        return c;
+    }
+
+    public static ItemStack icon(String id) {
+        return ICONS.computeIfAbsent(id, key -> {
+            ResourceLocation location = ResourceLocation.tryParse(key);
+            return location == null ? ItemStack.EMPTY : BuiltInRegistries.ITEM.get(location).getDefaultInstance();
+        });
+    }
+
+    public static void action(String action) {
+        ModNetwork.action(action, new CompoundTag());
+    }
+
+    public static void action(String action, CompoundTag args) {
+        ModNetwork.action(action, args);
+    }
+
+    public static void action(String action, String key, UUID id) {
+        CompoundTag t = new CompoundTag();
+        t.putUUID(key, id);
+        ModNetwork.action(action, t);
+    }
+}

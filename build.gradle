@@ -1,0 +1,91 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev'
+}
+
+group = mod_group
+version = mod_version
+
+base {
+    archivesName = "${mod_id}-neoforge-${minecraft_version}"
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        name = 'RYS family'
+        url = rootProject.file('../RYSCore/repo')
+        content { includeGroup 'works.repka.ryscore' }
+    }
+}
+
+// Автотест живёт только в запусках для разработки и в jar не попадает.
+sourceSets {
+    autotest {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+
+neoForge {
+    version = neo_version
+
+    mods {
+        "${mod_id}" {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.autotest
+        }
+    }
+
+    runs {
+        client {
+            client()
+            gameDirectory = project.file('run')
+        }
+        // Запуск на выделенном сервере: проверяет, что серверная сторона не тянет клиентские классы.
+        dedicated {
+            type = 'gameTestServer'
+            gameDirectory = project.file('run-server')
+        }
+        autotest {
+            client()
+            gameDirectory = project.file('run')
+            systemProperty 'rysteams.autotest', project.findProperty('autotest') ?: 'ui'
+            programArguments.addAll '--width', '1920', '--height', '1080'
+        }
+    }
+}
+
+neoForge.addModdingDependenciesTo(sourceSets.autotest)
+
+dependencies {
+    implementation "works.repka.ryscore:ryscore-neoforge:${ryscore_version}"
+    autotestImplementation "works.repka.ryscore:ryscore-neoforge:${ryscore_version}"
+    jarJar("works.repka.ryscore:ryscore-neoforge:[${ryscore_version},2.0.0)") {
+        version { prefer ryscore_version }
+        transitive = false
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 21
+}
+
+processResources {
+    def props = [
+        mod_id: mod_id, mod_name: mod_name, mod_version: mod_version,
+        mod_authors: mod_authors, mod_license: mod_license,
+        minecraft_version_range: minecraft_version_range,
+        neo_version_range: neo_version_range,
+        ryscore_version: ryscore_version
+    ]
+    inputs.properties props
+    filesMatching('META-INF/neoforge.mods.toml') {
+        expand props
+    }
+}
