@@ -44,7 +44,7 @@ public final class FtbImport {
                     skipped++;
                     continue;
                 }
-                Team team = convert(root);
+                Team team = convert(root, server);
                 if (team == null || store.teams.containsKey(team.id)) {
                     skipped++;
                     continue;
@@ -68,7 +68,46 @@ public final class FtbImport {
         return new Result(teams, players, skipped);
     }
 
-    private static Team convert(Map<?, ?> root) {
+    /** Ник из файла игрока FTB Teams, затем из кэша профилей сервера. Если нигде нет, начало UUID. */
+    private static String nameOf(MinecraftServer server, UUID player) {
+        Path file = server.getWorldPath(LevelResource.ROOT).resolve("ftbteams").resolve("player").resolve(player + ".snbt");
+        if (Files.isRegularFile(file)) {
+            try {
+                if (new Snbt(Files.readString(file, StandardCharsets.UTF_8)).value() instanceof Map<?, ?> data
+                    && data.get("player_name") instanceof String name && !name.isBlank()) return name;
+            } catch (IOException | RuntimeException e) {
+                RYSTeams.LOG.warn("Файл игрока FTB {} не прочитан: {}", file.getFileName(), e.toString());
+            }
+        }
+        var cache = server.getProfileCache();
+        if (cache != null) {
+            var profile = cache.get(player);
+            if (profile.isPresent() && profile.get().getName() != null) return profile.get().getName();
+        }
+        return placeholder(player);
+    }
+
+    private static String placeholder(UUID player) {
+        return player.toString().substring(0, 8);
+    }
+
+    /** Прежний импорт записывал вместо ника начало UUID: исправляем уже перенесённые команды. */
+    public static void repairNames(MinecraftServer server) {
+        TeamStore store = TeamStore.get(server);
+        boolean changed = false;
+        for (Team team : store.teams.values()) {
+            for (Team.Member member : team.members.values()) {
+                if (!member.name.equals(placeholder(member.id))) continue;
+                String real = nameOf(server, member.id);
+                if (real.equals(member.name)) continue;
+                member.name = real;
+                changed = true;
+            }
+        }
+        if (changed) store.setDirty();
+    }
+
+    private static Team convert(Map<?, ?> root, MinecraftServer server) {
         UUID id = UUID.fromString((String) root.get("id"));
         Map<?, ?> props = root.get("properties") instanceof Map<?, ?> m ? m : Map.of();
         String name = props.get("ftbteams:display_name") instanceof String s && !s.isBlank() ? s : "Team";
@@ -76,7 +115,8 @@ public final class FtbImport {
         if (props.get("ftbteams:color") instanceof String c && c.startsWith("#")) color = Integer.parseUnsignedInt(c.substring(1), 16) & 0xFFFFFF;
         long now = TeamService.now();
         Team team = new Team(id, name, color, "minecraft:white_banner", now);
-        if (Boolean.TRUE.equals(props.get("ftbteams:free_to_join"))) team.join = Team.JoinMode.OPEN;
+        Object open = props.get("ftbteams:free_to_join");
+        if (Boolean.TRUE.equals(open) || "1b".equals(open)) team.join = Team.JoinMode.OPEN;
         if (!(root.get("ranks") instanceof Map<?, ?> ranks)) return null;
         for (Map.Entry<?, ?> e : ranks.entrySet()) {
             Role role = switch (String.valueOf(e.getValue())) {
@@ -88,7 +128,7 @@ public final class FtbImport {
             };
             if (role == null) continue;
             UUID player = UUID.fromString((String) e.getKey());
-            team.members.put(player, new Team.Member(player, player.toString().substring(0, 8), role, now, 0));
+            team.members.put(player, new Team.Member(player, nameOf(server, player), role, now, 0));
         }
         return team;
     }

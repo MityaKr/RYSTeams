@@ -74,6 +74,7 @@ public final class TeamService {
         undo = null;
         DIRTY.clear();
         Presence.reset();
+        FtbImport.repairNames(s);
     }
 
     public static void stop() {

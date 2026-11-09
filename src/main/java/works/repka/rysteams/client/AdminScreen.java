@@ -13,6 +13,7 @@ import works.repka.ryscore.theme.Theme;
 import works.repka.ryscore.theme.ThemeManager;
 import works.repka.ryscore.ui.Draw;
 import works.repka.ryscore.ui.Kit;
+import works.repka.ryscore.ui.Scroller;
 import works.repka.ryscore.ui.Type.Weight;
 
 /** Экран администратора: все команды, архив распущенных, импорт из FTB Teams. Открывается командой {@code /rysteams admin}. */
@@ -28,6 +29,7 @@ public final class AdminScreen extends Screen {
     private String armed = "";
     private long armedUntil;
     private int mx, my, scroll;
+    private final Scroller scroller = new Scroller();
 
     public AdminScreen(CompoundTag data) {
         super(Component.translatable("rysteams.admin.title"));
@@ -76,7 +78,7 @@ public final class AdminScreen extends Screen {
         heading(g, t, tr("rysteams.admin.archive", archive.size()), right, top);
         int listTop = top + 12, listBottom = py + ph - 8;
         int content = Math.max(teams.size(), archive.size()) * STEP - (STEP - ROW);
-        scroll = Math.max(0, Math.min(scroll, Math.max(0, content - (listBottom - listTop))));
+        scroll = Math.round(scroller.update(Math.max(0, content - (listBottom - listTop))));
         hits.clip(listTop, listBottom);
         g.enableScissor(px + 1, listTop, px + pw - 1, listBottom);
         int y = listTop - scroll;
@@ -165,7 +167,7 @@ public final class AdminScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double x, double y, double dx, double dy) {
-        scroll -= (int) (dy * 18);
+        scroller.by(-(float) dy * 18);
         return true;
     }
 }

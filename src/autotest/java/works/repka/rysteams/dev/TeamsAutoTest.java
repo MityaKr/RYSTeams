@@ -301,9 +301,13 @@ public final class TeamsAutoTest {
                 var dir = server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).resolve("ftbteams").resolve("party");
                 java.nio.file.Files.createDirectories(dir);
                 java.nio.file.Files.writeString(dir.resolve(ftbTeam + ".snbt"), snbt);
+                var players = dir.resolveSibling("player");
+                java.nio.file.Files.createDirectories(players);
+                java.nio.file.Files.writeString(players.resolve(owner + ".snbt"), "{\n\tid: \"" + owner + "\"\n\ttype: \"player\"\n\tplayer_name: \"OldLeader\"\n}\n");
                 var result = works.repka.rysteams.server.FtbImport.run(server);
                 Team imported = TeamService.store().teams.get(ftbTeam);
                 check("импорт FTB: одна команда, двое участников, союзник не участник", result.teams() == 1 && result.players() == 2);
+                check("импорт FTB: ник игрока из его файла", imported != null && imported.members.get(owner).name.equals("OldLeader"));
                 check("импорт FTB: имя, цвет, открытость, лидер", imported != null && imported.name.equals("Старая команда") && imported.color == 0xFF8800
                     && imported.join == Team.JoinMode.OPEN && imported.members.get(owner).role == Role.LEADER);
             } catch (java.io.IOException e) {

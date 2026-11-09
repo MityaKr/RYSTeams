@@ -16,11 +16,11 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.fml.ModList;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 import org.lwjgl.glfw.GLFW;
+import net.neoforged.fml.ModList;
 import works.repka.ryscore.theme.Theme;
 import works.repka.ryscore.theme.ThemeManager;
 import works.repka.ryscore.ui.Draw;
@@ -75,13 +75,13 @@ public final class TeamHud {
         };
     }
 
-    // --- участники ---
-
-    /** Карта в углу занимает правый верх, панель встаёт под неё. */
-    private static int hudTop() {
+    /** Приглашение появляется справа сверху, под картой, если она есть. */
+    private static int inviteTop() {
         ModList mods = ModList.get();
         return mods.isLoaded("ftbchunks") || mods.isLoaded("journeymap") || mods.isLoaded("xaerominimap") ? 90 : 10;
     }
+
+    // --- участники ---
 
     private static void members(GuiGraphics g, Theme t, Minecraft mc, Team team) {
         List<Team.Member> shown = new ArrayList<>();
@@ -99,7 +99,8 @@ public final class TeamHud {
         int visible = Math.min(HUD_ROWS, shown.size());
         int more = shown.size() - visible;
         int h = 6 + 9 + visible * 23 + 3 + 8 + 6;
-        int x = g.guiWidth() - HUD_W - 10, y = hudTop();
+        // правый верх обычно занят картой, поэтому панель стоит в правом нижнем углу
+        int x = g.guiWidth() - HUD_W - 10, y = g.guiHeight() - h - 10;
         Draw.roundBox(g, x, y, HUD_W, h, t.beveled() ? 0 : 6f, Draw.alpha(t.c("hud.bg"), 0.92f), t.c("hud.border"));
         int text = t.beveled() ? 0xFFFFFFFF : t.c("text.primary");
         int muted = t.beveled() ? 0xFFC0C0C0 : t.c("text.muted");
@@ -355,7 +356,7 @@ public final class TeamHud {
     private static void invite(GuiGraphics g, Theme t, Minecraft mc) {
         if (TeamClient.invites.isEmpty() || mc.screen instanceof TeamScreen) return;
         TeamClient.Info invite = TeamClient.invites.get(0);
-        int w = 180, x = g.guiWidth() - w - 10, y = mc.screen == null ? hudTop() : 10;
+        int w = 180, x = g.guiWidth() - w - 10, y = mc.screen == null ? inviteTop() : 10;
         int inner = w - 14;
         List<String> first = Draw.wrapLabel(tr("rysteams.invite.progress"), inner - 12, 12, Weight.REGULAR, 3);
         List<String> second = Draw.wrapLabel(tr("rysteams.invite.keep"), inner - 12, 12, Weight.REGULAR, 2);

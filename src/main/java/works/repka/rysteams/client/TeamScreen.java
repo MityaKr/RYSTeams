@@ -21,6 +21,7 @@ import works.repka.ryscore.ui.Draw;
 import works.repka.ryscore.ui.Field;
 import works.repka.ryscore.ui.Icons;
 import works.repka.ryscore.ui.Kit;
+import works.repka.ryscore.ui.Scroller;
 import works.repka.ryscore.ui.Type.Weight;
 import works.repka.rysteams.api.Permission;
 import works.repka.rysteams.api.Role;
@@ -41,6 +42,7 @@ public final class TeamScreen extends Screen {
     private final Kit.Hits hits = new Kit.Hits();
     private int px, py, pw, ph, mx, my;
     private int feedScroll, feedContent, bodyScroll, bodyContent;
+    private final Scroller feedScroller = new Scroller(), bodyScroller = new Scroller();
     private String filter = "";
     private UUID menuFor;
     private boolean invitePopup;
@@ -146,7 +148,7 @@ public final class TeamScreen extends Screen {
     }
 
     private void scrolled(GuiGraphics g, int y, int h, Content content) {
-        bodyScroll = Math.max(0, Math.min(bodyScroll, Math.max(0, bodyContent - h)));
+        bodyScroll = Math.round(bodyScroller.update(Math.max(0, bodyContent - h)));
         hits.clip(y, y + h);
         g.enableScissor(px + 1, y, px + pw - 1, y + h - 1);
         bodyContent = content.draw(y - bodyScroll) - (y - bodyScroll);
@@ -321,7 +323,7 @@ public final class TeamScreen extends Screen {
             String label = tr("rysteams.tab." + each.name().toLowerCase(java.util.Locale.ROOT));
             x += Kit.pill(g, t, hits, x, py + 9, label, tab == each, mx, my, () -> {
                 tab = each;
-                bodyScroll = 0;
+                bodyScroller.reset();
                 invitePopup = false;
                 menuFor = null;
             }) + 2;
@@ -552,7 +554,7 @@ public final class TeamScreen extends Screen {
             Draw.label(g, label, cx + cw / 2f - Draw.labelWidth(label, 11, Weight.REGULAR) / 2f, y + 5, 11, Weight.REGULAR, i < 0 ? t.c("text.primary") : sourceFg(t, source));
             hits.add(cx, y, cw, 10, b -> {
                 filter = source;
-                feedScroll = 0;
+                feedScroller.reset();
             });
             cx -= 2;
         }
@@ -567,7 +569,7 @@ public final class TeamScreen extends Screen {
         }
         int summaryH = missed.isEmpty() ? 0 : 26;
         int top = y + 15, listH = h - 15 - (summaryH > 0 ? summaryH + 5 : 0);
-        feedScroll = Math.max(0, Math.min(feedScroll, Math.max(0, feedContent - listH)));
+        feedScroll = Math.round(feedScroller.update(Math.max(0, feedContent - listH)));
         hits.clip(top, top + listH);
         g.enableScissor(x, top, x + w, top + listH);
         int ry = top - feedScroll;
@@ -1316,8 +1318,8 @@ public final class TeamScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double x, double y, double dx, double dy) {
-        if (tab == Tab.TEAM) feedScroll -= (int) (dy * 18);
-        else bodyScroll -= (int) (dy * 18);
+        if (tab == Tab.TEAM) feedScroller.by(-(float) dy * 18);
+        else bodyScroller.by(-(float) dy * 18);
         return true;
     }
 
