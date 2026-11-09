@@ -213,7 +213,7 @@ public final class TeamScreen extends Screen {
         b.render(g, mx, my, 0);
     }
 
-    private void teamTile(GuiGraphics g, int color, String icon, int x, int y, int size, float radius) {
+    static void teamTile(GuiGraphics g, int color, String icon, int x, int y, int size, float radius) {
         Draw.round(g, x, y, size, size, radius, TeamHud.rgb(color));
         ItemStack stack = TeamClient.icon(icon);
         if (stack.isEmpty()) return;
@@ -261,7 +261,7 @@ public final class TeamScreen extends Screen {
     }
 
     /** Значок: рамка, две фигуры и линза. Рисуется по координатам svg из макета (поле 56×56). */
-    private static void logo(GuiGraphics g, Theme t, int x, int y, float size) {
+    static void logo(GuiGraphics g, Theme t, int x, int y, float size) {
         float s = size / 56f;
         Draw.roundBox(g, x + 6 * s, y + 6 * s, 44 * s, 44 * s, 8 * s, t.c("slot.bg"), t.c("card.border"));
         int figure = 0xFF5B6273;

@@ -715,11 +715,12 @@ public final class TeamService {
 
     // --- администратор ---
 
-    private static CompoundTag adminRow(UUID id, String name, int color, int count, String leader, long time) {
+    private static CompoundTag adminRow(UUID id, String name, int color, String icon, int count, String leader, long time) {
         CompoundTag x = new CompoundTag();
         x.putUUID("id", id);
         x.putString("name", name);
         x.putInt("color", color);
+        x.putString("icon", icon);
         x.putInt("count", count);
         x.putString("leader", leader);
         x.putLong("time", time);
@@ -734,14 +735,14 @@ public final class TeamService {
         ListTag teams = new ListTag();
         for (Team t : s.teams.values()) {
             Team.Member leader = t.leader();
-            teams.add(adminRow(t.id, t.name, t.color, t.members.size(), leader == null ? "" : leader.name, t.created));
+            teams.add(adminRow(t.id, t.name, t.color, t.icon, t.members.size(), leader == null ? "" : leader.name, t.created));
         }
         out.put("teams", teams);
         ListTag archive = new ListTag();
         for (TeamStore.Archived a : s.archive) {
             Team t = Team.load(a.team());
             Team.Member leader = t.members.get(a.leader());
-            archive.add(adminRow(t.id, t.name, t.color, t.members.size(), leader == null ? "" : leader.name, a.time()));
+            archive.add(adminRow(t.id, t.name, t.color, t.icon, t.members.size(), leader == null ? "" : leader.name, a.time()));
         }
         out.put("archive", archive);
         ModNetwork.send(p, out);

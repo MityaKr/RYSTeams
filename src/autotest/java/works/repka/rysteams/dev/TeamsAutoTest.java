@@ -281,6 +281,7 @@ public final class TeamsAutoTest {
             act("admin_disband", a);
         }, 10);
         step("admin disbanded", () -> check("администратор распустил чужую команду", TeamClient.teams.stream().noneMatch(i -> i.id().equals(OTHER_TEAM))), 2);
+        shot("admin_archive");
         step("admin restore", () -> {
             CompoundTag a = new CompoundTag();
             a.putUUID("team", OTHER_TEAM);
