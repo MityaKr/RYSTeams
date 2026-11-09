@@ -160,6 +160,12 @@ public final class TeamsAutoTest {
         }, 10);
         step("created", () -> check("команда создана, игрок лидер", TeamClient.team != null && TeamClient.team.members.get(mc().player.getUUID()).role == Role.LEADER), 2);
         step("seed", () -> server(TeamsAutoTest::seed), 10);
+        step("cards", () -> {
+            works.repka.ryscore.team.TeamCards.register(() -> new works.repka.ryscore.team.TeamCards.Card(net.minecraft.resources.ResourceLocation.parse("rysquests:quests"),
+                Component.literal("RYSQuests"), List.of(Component.literal("41 / 68 · 2 награды к получению")), Component.literal("Открыть книгу"), () -> {}, false));
+            works.repka.ryscore.team.TeamCards.register(() -> new works.repka.ryscore.team.TeamCards.Card(net.minecraft.resources.ResourceLocation.parse("ryspulse:pulse"),
+                Component.literal("RYSPulse"), List.of(Component.literal("База «Дом» · энергия 68 % · плавильня ×2 встала")), null, null, true));
+        }, 2);
         step("note", () -> {
             CompoundTag a = new CompoundTag();
             a.putString("text", "Сверху портал в Незер, не закрывать проход.");
@@ -266,6 +272,24 @@ public final class TeamsAutoTest {
         }, 2);
         step("restore", () -> act("restore", new CompoundTag()), 10);
         step("restored", () -> check("команда возвращена из архива", TeamClient.team != null), 2);
+        step("admin open", () -> mc().player.connection.sendCommand("rysteams admin"), 10);
+        step("admin check", () -> check("команда /rysteams admin открыла экран", mc().screen instanceof works.repka.rysteams.client.AdminScreen), 2);
+        shot("admin");
+        step("admin disband", () -> {
+            CompoundTag a = new CompoundTag();
+            a.putUUID("team", OTHER_TEAM);
+            act("admin_disband", a);
+        }, 10);
+        step("admin disbanded", () -> check("администратор распустил чужую команду", TeamClient.teams.stream().noneMatch(i -> i.id().equals(OTHER_TEAM))), 2);
+        step("admin restore", () -> {
+            CompoundTag a = new CompoundTag();
+            a.putUUID("team", OTHER_TEAM);
+            act("admin_restore", a);
+        }, 10);
+        step("admin restored", () -> {
+            check("администратор вернул команду из архива", TeamClient.teams.stream().anyMatch(i -> i.id().equals(OTHER_TEAM)));
+            mc().setScreen(null);
+        }, 2);
         step("ftb import", () -> server(() -> {
             // файл в том же виде, что пишет FTB Teams: без запятых, ключи с новой строки
             UUID ftbTeam = UUID.nameUUIDFromBytes("ftb".getBytes()), owner = UUID.nameUUIDFromBytes("ftbOwner".getBytes()), officer = UUID.nameUUIDFromBytes("ftbOfficer".getBytes());

@@ -335,6 +335,10 @@ public final class TeamService {
         TeamStore s = store();
         UUID me = p.getUUID();
         Team team = s.teamOf(me);
+        if (action.startsWith("admin_")) {
+            admin(p, action, a);
+            return;
+        }
         switch (action) {
             case "create" -> create(p, a);
             case "join" -> join(p, s.teams.get(a.getUUID("team")));
@@ -707,6 +711,92 @@ public final class TeamService {
             }
         }
         touchLobby();
+    }
+
+    // --- администратор ---
+
+    private static CompoundTag adminRow(UUID id, String name, int color, int count, String leader, long time) {
+        CompoundTag x = new CompoundTag();
+        x.putUUID("id", id);
+        x.putString("name", name);
+        x.putInt("color", color);
+        x.putInt("count", count);
+        x.putString("leader", leader);
+        x.putLong("time", time);
+        return x;
+    }
+
+    public static void sendAdmin(ServerPlayer p) {
+        TeamStore s = store();
+        CompoundTag out = new CompoundTag();
+        out.putString("type", "admin");
+        out.putBoolean("ftb", FtbImport.available(server) && !s.ftbImported);
+        ListTag teams = new ListTag();
+        for (Team t : s.teams.values()) {
+            Team.Member leader = t.leader();
+            teams.add(adminRow(t.id, t.name, t.color, t.members.size(), leader == null ? "" : leader.name, t.created));
+        }
+        out.put("teams", teams);
+        ListTag archive = new ListTag();
+        for (TeamStore.Archived a : s.archive) {
+            Team t = Team.load(a.team());
+            Team.Member leader = t.members.get(a.leader());
+            archive.add(adminRow(t.id, t.name, t.color, t.members.size(), leader == null ? "" : leader.name, a.time()));
+        }
+        out.put("archive", archive);
+        ModNetwork.send(p, out);
+    }
+
+    private static void admin(ServerPlayer p, String action, CompoundTag a) {
+        if (!p.hasPermissions(2)) {
+            denied(p);
+            return;
+        }
+        TeamStore s = store();
+        switch (action) {
+            case "admin_disband" -> {
+                Team team = s.teams.get(a.getUUID("team"));
+                if (team == null) return;
+                Team.Member leader = team.leader();
+                disband(team, leader == null ? p.getUUID() : leader.id);
+            }
+            case "admin_restore" -> {
+                for (TeamStore.Archived entry : new ArrayList<>(s.archive)) {
+                    if (entry.team().getUUID("id").equals(a.getUUID("team"))) {
+                        unarchive(entry);
+                        break;
+                    }
+                }
+            }
+            case "admin_import" -> {
+                try {
+                    FtbImport.Result r = FtbImport.run(server);
+                    toast(p, Component.translatable("rysteams.admin.imported", r.teams(), r.players(), r.skipped()), false);
+                } catch (java.io.IOException e) {
+                    toast(p, Component.literal(e.toString()), true);
+                }
+            }
+            default -> {
+                return;
+            }
+        }
+        sendAdmin(p);
+    }
+
+    /** Возвращает команду из архива. Кто успел вступить в другую команду, остаётся там. */
+    private static Team unarchive(TeamStore.Archived entry) {
+        TeamStore s = store();
+        Team team = Team.load(entry.team());
+        s.archive.remove(entry);
+        if (s.teams.containsKey(team.id)) return null;
+        team.members.keySet().removeIf(s.byPlayer::containsKey);
+        if (team.members.isEmpty()) return null;
+        if (team.members.get(entry.leader()) != null) team.members.get(entry.leader()).role = Role.LEADER;
+        else team.members.values().iterator().next().role = Role.LEADER;
+        s.teams.put(team.id, team);
+        for (UUID id : team.members.keySet()) s.byPlayer.put(id, team.id);
+        touchLobby();
+        return team;
     }
 
     private static void restore(ServerPlayer p) {

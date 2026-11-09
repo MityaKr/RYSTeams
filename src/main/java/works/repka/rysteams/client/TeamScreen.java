@@ -17,6 +17,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.item.ItemStack;
+import works.repka.ryscore.team.TeamCards;
 import works.repka.ryscore.theme.Theme;
 import works.repka.ryscore.theme.ThemeManager;
 import works.repka.ryscore.ui.Draw;
@@ -543,7 +544,42 @@ public final class TeamScreen extends Screen {
         onClose();
     }
 
-    private void onlineColumn(GuiGraphics g, Theme t, int x, int y, int w, int h) {
+    /** Сводка от модов семьи: у каждого своя карточка, поверх списка игроков. */
+    private int cards(GuiGraphics g, Theme t, int x, int y, int w) {
+        List<TeamCards.Card> cards = TeamCards.current();
+        if (cards.isEmpty()) return y;
+        section(g, t, tr("rysteams.section.summary"), x + 1, y + 2);
+        int ry = y + 12;
+        Font f = font();
+        for (TeamCards.Card card : cards) {
+            List<FormattedCharSequence> lines = new ArrayList<>();
+            for (Component line : card.lines()) lines.addAll(f.split(line, (int) ((w - 12) / 0.75f)));
+            if (lines.size() > 4) lines = lines.subList(0, 4);
+            int h = 17 + lines.size() * 8 + (card.button() != null ? 17 : 2);
+            if (card.alert()) Draw.roundBox(g, x, ry, w, h, t.r("card.radius"), Draw.alpha(t.c("state.bad"), 0.12f), Draw.alpha(t.c("state.bad"), 0.5f));
+            else t.card(g, x, ry, w, h);
+            Draw.text(g, Draw.ellipsize(card.title().getString(), w - 12), x + 6, ry + 5, t.c("text.primary"));
+            int ly = ry + 16;
+            for (FormattedCharSequence line : lines) {
+                g.pose().pushPose();
+                g.pose().translate(x + 6, ly, 0);
+                g.pose().scale(0.75f, 0.75f, 1f);
+                g.drawString(f, line, 0, 0, t.c("text.body"), false);
+                g.pose().popPose();
+                ly += 8;
+            }
+            if (card.button() != null && card.action() != null) {
+                String label = card.button().getString();
+                button(g, t, x + 6, ly + 1, buttonW(label), 14, label, false, card.action());
+            }
+            ry += h + 3;
+        }
+        return ry + 3;
+    }
+
+    private void onlineColumn(GuiGraphics g, Theme t, int x, int top, int w, int fullH) {
+        int y = cards(g, t, x, top, w);
+        int h = fullH - (y - top);
         section(g, t, tr("rysteams.section.online"), x + 1, y + 2);
         int ry = y + 12;
         if (TeamClient.online.isEmpty()) Draw.textScaled(g, tr("rysteams.online.empty"), x + 1, ry + 2, 0.75f, t.c("text.dim"));

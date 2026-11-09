@@ -51,6 +51,24 @@ neoForge {
             type = 'gameTestServer'
             gameDirectory = project.file('run-server')
         }
+        // Сервер и два клиента: сценарий DuoTest. Запускаются вместе, см. tools/duo.sh
+        duoServer {
+            server()
+            gameDirectory = project.file('run-duo/server')
+            programArguments.add '--nogui'
+        }
+        duoAlpha {
+            client()
+            gameDirectory = project.file('run-duo/alpha')
+            systemProperty 'rysteams.duo', 'alpha'
+            programArguments.addAll '--username', 'Alpha', '--width', '1920', '--height', '1080'
+        }
+        duoBeta {
+            client()
+            gameDirectory = project.file('run-duo/beta')
+            systemProperty 'rysteams.duo', 'beta'
+            programArguments.addAll '--username', 'Beta', '--width', '1920', '--height', '1080'
+        }
         autotest {
             client()
             gameDirectory = project.file('run')

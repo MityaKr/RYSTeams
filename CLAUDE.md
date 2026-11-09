@@ -26,10 +26,21 @@
 * Экран на G: T в игре открывает чат. Пинг на V: средняя кнопка занята выбором блока.
 * Состояние команды уходит целиком при изменении, диффами идёт только присутствие: состав и лента маленькие.
 
+* Адаптера API FTB Teams нет: у FTB Teams лицензия All Rights Reserved. Пока FTB Chunks и FTB Quests требуют его, он остаётся рядом, из него только импорт данных.
+* Маркеры на картах Xaero и JourneyMap отложены: в RepYS этих карт нет, проверить негде.
+
 ## Проверка
 
 ```bash
 gradlew runAutotest
 ```
+
+Настоящий сервер и два клиента (сценарий `DuoTest`, вердикты в `run-duo/*/logs/latest.log`):
+
+```bash
+sh tools/duo.sh
+```
+
+Папка `run-duo/server` должна содержать `eula.txt`, `server.properties` с `online-mode=false` и `server-port=25577`, `ops.json` с игроком Alpha.
 
 Сборка требует соседний `../RYSCore` с выполненным `gradlew publish`. Сценарий сам создаёт новый мир, вердикт в логе: строка `[autotest] PASS`, скриншоты в `run/screenshots`.

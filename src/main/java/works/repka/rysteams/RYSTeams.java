@@ -96,6 +96,10 @@ public final class RYSTeams {
                 TeamService.inviteReply(player, UUID.fromString(StringArgumentType.getString(c, "team")), "accept");
                 return Command.SINGLE_SUCCESS;
             })))
+            .then(Commands.literal("admin").requires(s -> s.hasPermission(2)).executes(c -> {
+                TeamService.sendAdmin(c.getSource().getPlayerOrException());
+                return Command.SINGLE_SUCCESS;
+            }))
             .then(Commands.literal("list").requires(s -> s.hasPermission(2)).executes(c -> {
                 TeamStore store = TeamService.store();
                 c.getSource().sendSuccess(() -> Component.translatable("rysteams.admin.count", store.teams.size()), false);

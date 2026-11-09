@@ -24,6 +24,10 @@ public final class FtbImport {
 
     public record Result(int teams, int players, int skipped) {}
 
+    public static boolean available(MinecraftServer server) {
+        return Files.isDirectory(server.getWorldPath(LevelResource.ROOT).resolve("ftbteams").resolve("party"));
+    }
+
     public static Result run(MinecraftServer server) throws IOException {
         TeamStore store = TeamStore.get(server);
         Path dir = server.getWorldPath(LevelResource.ROOT).resolve("ftbteams").resolve("party");

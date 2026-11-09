@@ -77,6 +77,11 @@ public final class TeamClient {
             case "ping" -> PINGS.add(new Ping(t.getString("by"), t.getInt("color"), t.getString("kind"), t.getString("dim"),
                 t.getInt("x"), t.getInt("y"), t.getInt("z"), System.currentTimeMillis() + PING_MS));
             case "toast" -> toast(text(t.getString("text")), t.getBoolean("bad"));
+            case "admin" -> {
+                Minecraft mc = Minecraft.getInstance();
+                if (mc.screen instanceof AdminScreen open) open.accept(t);
+                else mc.setScreen(new AdminScreen(t));
+            }
             default -> { }
         }
     }

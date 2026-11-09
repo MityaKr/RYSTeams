@@ -56,7 +56,11 @@ public final class ClientEntry {
         modBus.addListener((RegisterGuiLayersEvent e) ->
             e.registerAboveAll(ResourceLocation.fromNamespaceAndPath(RYSTeams.MODID, "hud"), TeamHud::render));
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post e) -> tick());
-        NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut e) -> TeamClient.reset());
+        NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut e) -> {
+            TeamClient.reset();
+            ChatChannels.reset();
+        });
+        ChatChannels.init();
         NeoForge.EVENT_BUS.addListener(ClientEntry::onKey);
         NeoForge.EVENT_BUS.addListener(ClientEntry::onScroll);
     }
