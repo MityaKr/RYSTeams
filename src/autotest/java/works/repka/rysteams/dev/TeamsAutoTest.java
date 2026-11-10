@@ -255,6 +255,9 @@ public final class TeamsAutoTest {
             });
         }, 15);
         shot("hud");
+        step("card top left", () -> works.repka.ryscore.ui.Anchors.setCorner(works.repka.ryscore.ui.Anchors.Element.TEAM_CARD, works.repka.ryscore.ui.Anchors.Corner.TOP_LEFT), 5);
+        shot("hud_card_top_left");
+        step("card back", () -> works.repka.ryscore.ui.Anchors.setCorner(works.repka.ryscore.ui.Anchors.Element.TEAM_CARD, works.repka.ryscore.ui.Anchors.Corner.BOTTOM_RIGHT), 2);
         step("invite toast", () -> {
             TeamClient.invites = List.of(new TeamClient.Info(OTHER_TEAM, "Болотники", Team.COLORS[2], "minecraft:lily_pad", 3, "INVITE", "Vasya",
                 System.currentTimeMillis() + 240_000));

@@ -34,10 +34,14 @@ public final class ClientEntry {
 
     public static final ModConfigSpec CLIENT_SPEC;
     public static final ModConfigSpec.BooleanValue SHOW_HUD;
+    public static final ModConfigSpec.IntValue PING_SECONDS;
+    /** Варианты срока жизни меток в настройках, по клику по кругу. */
+    public static final int[] PING_CHOICES = {5, 10, 15, 30, 60};
 
     static {
         ModConfigSpec.Builder b = new ModConfigSpec.Builder();
         SHOW_HUD = b.comment("Show team members over the world").define("showHud", true);
+        PING_SECONDS = b.comment("How long team markers stay on your screen, in seconds").defineInRange("pingSeconds", 5, 1, 600);
         CLIENT_SPEC = b.build();
     }
 

@@ -35,7 +35,6 @@ public final class TeamClient {
 
     public record Toast(Component text, boolean bad, long until) {}
 
-    public static final long PING_MS = 30_000;
 
     @Nullable public static Team team;
     public static List<Info> teams = List.of();
@@ -75,7 +74,7 @@ public final class TeamClient {
             case "state" -> state(t);
             case "presence" -> presence(t);
             case "ping" -> PINGS.add(new Ping(t.getString("by"), t.getInt("color"), t.getString("kind"), t.getString("dim"),
-                t.getInt("x"), t.getInt("y"), t.getInt("z"), System.currentTimeMillis() + PING_MS));
+                t.getInt("x"), t.getInt("y"), t.getInt("z"), System.currentTimeMillis() + ClientEntry.PING_SECONDS.get() * 1000L));
             case "toast" -> toast(text(t.getString("text")), t.getBoolean("bad"));
             case "admin" -> {
                 Minecraft mc = Minecraft.getInstance();

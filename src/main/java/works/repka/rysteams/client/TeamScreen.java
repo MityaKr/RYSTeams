@@ -1,5 +1,6 @@
 package works.repka.rysteams.client;
 
+import works.repka.ryscore.ui.Anchors;
 import works.repka.ryscore.ui.ScaledScreen;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -1106,7 +1107,7 @@ public final class TeamScreen extends ScaledScreen {
 
     private int identity(GuiGraphics g, Theme t, Team team, int x, int y, int w) {
         boolean manage = TeamClient.can(Permission.MANAGE);
-        int cardH = manage ? 94 : 38;
+        int cardH = manage ? 120 : 64;
         Draw.roundBox(g, x, y, w, cardH, 6f, t.c("card.bg"), t.c("panel.border"));
         caps(g, t, tr("rysteams.section.identity"), x + 7, y + 10);
         int ry = y + 18;
@@ -1132,11 +1133,42 @@ public final class TeamScreen extends ScaledScreen {
             a.putBoolean("on", !TeamClient.hideCoords);
             TeamClient.action("hide", a);
         });
-        toggleRow(g, t, x + 7, ry, w - 14, tr("rysteams.personal.hud"), ClientEntry.SHOW_HUD.get(), () -> {
+        ry = toggleRow(g, t, x + 7, ry, w - 14, tr("rysteams.personal.hud"), ClientEntry.SHOW_HUD.get(), () -> {
             ClientEntry.SHOW_HUD.set(!ClientEntry.SHOW_HUD.get());
             ClientEntry.CLIENT_SPEC.save();
         });
+        // только для себя: сколько живут метки и в каком углу стоит карточка команды
+        int seconds = ClientEntry.PING_SECONDS.get();
+        ry = choiceRow(g, t, x + 7, ry, w - 14, tr("rysteams.personal.pings"), tr("rysteams.personal.seconds", seconds), () -> {
+            int next = ClientEntry.PING_CHOICES[0];
+            for (int i = 0; i < ClientEntry.PING_CHOICES.length; i++) {
+                if (ClientEntry.PING_CHOICES[i] > seconds) {
+                    next = ClientEntry.PING_CHOICES[i];
+                    break;
+                }
+            }
+            ClientEntry.PING_SECONDS.set(next);
+            ClientEntry.CLIENT_SPEC.save();
+        });
+        Anchors.Corner corner = Anchors.corner(Anchors.Element.TEAM_CARD);
+        choiceRow(g, t, x + 7, ry, w - 14, tr("rysteams.personal.card"), tr("rysteams.corner." + corner.name().toLowerCase(java.util.Locale.ROOT)), () -> {
+            Anchors.Corner[] order = {Anchors.Corner.BOTTOM_RIGHT, Anchors.Corner.BOTTOM_LEFT, Anchors.Corner.TOP_LEFT, Anchors.Corner.TOP_RIGHT};
+            int at = 0;
+            for (int i = 0; i < order.length; i++) if (order[i] == corner) at = i;
+            Anchors.setCorner(Anchors.Element.TEAM_CARD, order[(at + 1) % order.length]);
+        });
         return y + cardH;
+    }
+
+    /** Строка выбора: подпись слева, значение со стрелкой справа, клик переключает по кругу. */
+    private int choiceRow(GuiGraphics g, Theme t, int x, int y, int w, String label, String value, Runnable action) {
+        boolean hot = hover(x, y - 2, w, 12);
+        Draw.label(g, label, x, y + 5, 12, Weight.REGULAR, t.c("button.fg"));
+        String shown = value + " ▾";
+        float vw = Draw.labelWidth(shown, 12, Weight.REGULAR);
+        Draw.label(g, shown, x + w - vw, y + 5, 12, Weight.REGULAR, hot ? t.c("accent") : t.c("text.primary"));
+        hits.add(x, y - 2, w, 12, b -> action.run());
+        return y + 13;
     }
 
     private int toggleRow(GuiGraphics g, Theme t, int x, int y, int w, String label, boolean on, Runnable action) {
