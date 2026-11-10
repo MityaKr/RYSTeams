@@ -1,5 +1,6 @@
 package works.repka.rysteams.client;
 
+import works.repka.ryscore.ui.ScaledScreen;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -17,7 +18,7 @@ import works.repka.ryscore.ui.Scroller;
 import works.repka.ryscore.ui.Type.Weight;
 
 /** Экран администратора: все команды, архив распущенных, импорт из FTB Teams. Открывается командой {@code /rysteams admin}. */
-public final class AdminScreen extends Screen {
+public final class AdminScreen extends ScaledScreen {
     private record Row(UUID id, String name, int color, String icon, int count, String leader, long time) {}
 
     private static final int W = 520, H = 340, HEADER = 32, ROW = 26, STEP = 29;
@@ -63,7 +64,7 @@ public final class AdminScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    protected void draw(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         Theme t = ThemeManager.get();
         mx = mouseX;
         my = mouseY;
@@ -80,7 +81,7 @@ public final class AdminScreen extends Screen {
         int content = Math.max(teams.size(), archive.size()) * STEP - (STEP - ROW);
         scroll = Math.round(scroller.update(Math.max(0, content - (listBottom - listTop))));
         hits.clip(listTop, listBottom);
-        g.enableScissor(px + 1, listTop, px + pw - 1, listBottom);
+        Draw.scissor(g, px + 1, listTop, px + pw - 1, listBottom);
         int y = listTop - scroll;
         for (Row r : teams) {
             String label = tr("rysteams.action.disband");
@@ -109,9 +110,10 @@ public final class AdminScreen extends Screen {
     }
 
     private void header(GuiGraphics g, Theme t, int px, int py, int pw) {
-        Draw.round(g, px + 0.5f, py + 0.5f, pw - 1, HEADER + 7, 6.5f, t.c("sidebar.bg"));
-        Draw.rect(g, px + 1, py + HEADER - 7, pw - 2, 7, t.c("sidebar.bg"));
-        Draw.rect(g, px + 1, py + HEADER, pw - 2, 8, t.c("panel.bg"));
+        // заливка шапки срезается по её низу: второй слой панели в полупрозрачной теме дал бы полосу
+        Draw.scissor(g, px, py, px + pw, py + HEADER);
+        Draw.round(g, px + 0.5f, py + 0.5f, pw - 1, HEADER + 14, 6.5f, t.c("sidebar.bg"));
+        g.disableScissor();
         Draw.round(g, px + 0.5f, py + HEADER - 0.5f, pw - 1, 0.5f, 0.02f, t.c("panel.border"));
         TeamScreen.logo(g, t, px + 9, py + 9, 13f);
         Draw.label(g, tr("rysteams.admin.title"), px + 27, py + 16, 16, Weight.DISPLAY, t.c("text.primary"));
@@ -161,12 +163,12 @@ public final class AdminScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double x, double y, int button) {
-        return hits.click(x, y, button) || super.mouseClicked(x, y, button);
+    protected boolean onClick(double x, double y, int button) {
+        return hits.click(x, y, button) || super.onClick(x, y, button);
     }
 
     @Override
-    public boolean mouseScrolled(double x, double y, double dx, double dy) {
+    protected boolean onScroll(double x, double y, double dx, double dy) {
         scroller.by(-(float) dy * 18);
         return true;
     }

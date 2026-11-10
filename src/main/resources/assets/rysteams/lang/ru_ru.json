@@ -9,6 +9,7 @@
   "rysteams.chat.allies": "Союз",
   "rysteams.chat.hint": "Tab: сменить канал",
   "rysteams.section.summary": "Сводка команды",
+  "sidebar_button.rysteams.team": "Команда",
   "rysteams.admin.title": "Команды сервера",
   "rysteams.admin.teams": "Команды: %s",
   "rysteams.admin.archive": "Архив: %s",

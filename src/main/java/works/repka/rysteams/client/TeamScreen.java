@@ -1,5 +1,6 @@
 package works.repka.rysteams.client;
 
+import works.repka.ryscore.ui.ScaledScreen;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -31,7 +32,7 @@ import works.repka.rysteams.data.Team;
  * Экран команды, размеры из {@code rysteams/design}: панель 1200×728 макета, в единицах GUI 600×364.
  * Рисуется целиком каждый кадр и записывает кнопки, клик ищет запись под курсором.
  */
-public final class TeamScreen extends Screen {
+public final class TeamScreen extends ScaledScreen {
     private enum Tab { TEAM, BOARD, MARKS, ALLIES, SETTINGS }
 
     private static final int W = 600, H = 364, HEADER = 32, LEFT = 150, RIGHT = 160;
@@ -77,6 +78,7 @@ public final class TeamScreen extends Screen {
 
     @Override
     protected void init() {
+        super.init();
         boxes.clear();
         nameBox = box(24, "rysteams.hint.name", nameBox);
         noteBox = box(400, "rysteams.hint.note", noteBox);
@@ -109,7 +111,7 @@ public final class TeamScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    protected void draw(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         Theme t = ThemeManager.get();
         mx = mouseX;
         my = mouseY;
@@ -150,7 +152,7 @@ public final class TeamScreen extends Screen {
     private void scrolled(GuiGraphics g, int y, int h, Content content) {
         bodyScroll = Math.round(bodyScroller.update(Math.max(0, bodyContent - h)));
         hits.clip(y, y + h);
-        g.enableScissor(px + 1, y, px + pw - 1, y + h - 1);
+        Draw.scissor(g, px + 1, y, px + pw - 1, y + h - 1);
         bodyContent = content.draw(y - bodyScroll) - (y - bodyScroll);
         g.disableScissor();
         hits.unclip();
@@ -291,9 +293,10 @@ public final class TeamScreen extends Screen {
 
     private void header(GuiGraphics g, Theme t, Team team) {
         // верхние углы как у панели, снизу прямой край
-        Draw.round(g, px + 0.5f, py + 0.5f, pw - 1, HEADER + 7, 6.5f, t.c("sidebar.bg"));
-        Draw.rect(g, px + 1, py + HEADER - 7, pw - 2, 7, t.c("sidebar.bg"));
-        Draw.rect(g, px + 1, py + HEADER, pw - 2, 8, t.c("panel.bg"));
+        // заливка шапки срезается по её низу: второй слой панели в полупрозрачной теме дал бы полосу
+        Draw.scissor(g, px, py, px + pw, py + HEADER);
+        Draw.round(g, px + 0.5f, py + 0.5f, pw - 1, HEADER + 14, 6.5f, t.c("sidebar.bg"));
+        g.disableScissor();
         Draw.round(g, px + 0.5f, py + HEADER - 0.5f, pw - 1, 0.5f, 0.02f, t.c("panel.border"));
         int x = px + 9;
         logo(g, t, x, py + 9, 13f);
@@ -321,7 +324,7 @@ public final class TeamScreen extends Screen {
         }
         for (Tab each : Tab.values()) {
             String label = tr("rysteams.tab." + each.name().toLowerCase(java.util.Locale.ROOT));
-            x += Kit.pill(g, t, hits, x, py + 9, label, tab == each, mx, my, () -> {
+            x += Kit.sectionTab(g, t, hits, x, py + 8, HEADER - 8, label, tab == each, mx, my, () -> {
                 tab = each;
                 bodyScroller.reset();
                 invitePopup = false;
@@ -571,7 +574,7 @@ public final class TeamScreen extends Screen {
         int top = y + 15, listH = h - 15 - (summaryH > 0 ? summaryH + 5 : 0);
         feedScroll = Math.round(feedScroller.update(Math.max(0, feedContent - listH)));
         hits.clip(top, top + listH);
-        g.enableScissor(x, top, x + w, top + listH);
+        Draw.scissor(g, x, top, x + w, top + listH);
         int ry = top - feedScroll;
         for (Team.Feed f : team.feed) {
             if (!filter.isEmpty() && !filter.equals(known(f.source()))) continue;
@@ -1301,14 +1304,14 @@ public final class TeamScreen extends Screen {
     // --- ввод ---
 
     @Override
-    public boolean mouseClicked(double x, double y, int button) {
+    protected boolean onClick(double x, double y, int button) {
         if (hits.click(x, y, button)) return true;
         if (invitePopup || menuFor != null) {
             invitePopup = false;
             menuFor = null;
             return true;
         }
-        boolean used = super.mouseClicked(x, y, button);
+        boolean used = super.onClick(x, y, button);
         if (!used) {
             setFocused(null);
             for (Field b : boxes) b.setFocused(false);
@@ -1317,7 +1320,7 @@ public final class TeamScreen extends Screen {
     }
 
     @Override
-    public boolean mouseScrolled(double x, double y, double dx, double dy) {
+    protected boolean onScroll(double x, double y, double dx, double dy) {
         if (tab == Tab.TEAM) feedScroller.by(-(float) dy * 18);
         else bodyScroller.by(-(float) dy * 18);
         return true;

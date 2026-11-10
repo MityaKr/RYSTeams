@@ -9,6 +9,7 @@
   "rysteams.chat.allies": "Allies",
   "rysteams.chat.hint": "Tab: switch channel",
   "rysteams.section.summary": "Team summary",
+  "sidebar_button.rysteams.team": "Team",
   "rysteams.admin.title": "Server teams",
   "rysteams.admin.teams": "Teams: %s",
   "rysteams.admin.archive": "Archive: %s",

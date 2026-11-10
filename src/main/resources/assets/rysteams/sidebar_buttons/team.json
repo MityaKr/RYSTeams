@@ -1,0 +1,10 @@
+{
+  "icon": "rysteams:textures/gui/sidebar_team.png",
+  "sort_index": 575,
+  "click": [
+    "command:/rysteams_open"
+  ],
+  "required_server_mods": [
+    "rysteams"
+  ]
+}

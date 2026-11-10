@@ -314,6 +314,30 @@ public final class TeamsAutoTest {
                 throw new RuntimeException(e);
             }
         }), 10);
+        for (int[] size : new int[][] {{2560, 1440}, {1920, 1080}}) {
+            for (int scale : new int[] {2, 3, 4, 0}) {
+                for (String theme : new String[] {"glass", "slate"}) {
+                    String tag = size[0] + "_s" + scale + "_" + theme;
+                    step("matrix " + tag, () -> {
+                        mc().setScreen(null);
+                        works.repka.ryscore.theme.ThemeManager.select("ryscore:" + theme);
+                        mc().getWindow().setWindowed(size[0], size[1]);
+                        mc().options.guiScale().set(scale);
+                        mc().resizeDisplay();
+                    }, 8);
+                    step("matrix open " + tag, () -> openTab(0), 8);
+                    shot("m_" + tag);
+                    step("matrix hud " + tag, () -> mc().setScreen(null), 4);
+                    shot("m_" + tag + "_hud");
+                }
+            }
+        }
+        step("matrix restore", () -> {
+            works.repka.ryscore.theme.ThemeManager.select("ryscore:slate");
+            mc().getWindow().setWindowed(1280, 800);
+            mc().options.guiScale().set(2);
+            mc().resizeDisplay();
+        }, 4);
         step("finish", () -> {
             RYSTeams.LOG.info(failures == 0 ? "[autotest] PASS" : "[autotest] FAILED: {}", failures);
             mc().stop();

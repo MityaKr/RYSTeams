@@ -20,10 +20,11 @@ import org.jetbrains.annotations.Nullable;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 import org.lwjgl.glfw.GLFW;
-import net.neoforged.fml.ModList;
 import works.repka.ryscore.theme.Theme;
 import works.repka.ryscore.theme.ThemeManager;
+import works.repka.ryscore.ui.Anchors;
 import works.repka.ryscore.ui.Draw;
+import works.repka.ryscore.ui.UiScale;
 import works.repka.ryscore.ui.Icons;
 import works.repka.ryscore.ui.Type.Weight;
 import works.repka.rysteams.data.Team;
@@ -36,7 +37,11 @@ public final class TeamHud {
 
     private TeamHud() {}
 
-    public static void render(GuiGraphics g, DeltaTracker delta) {
+    public static void render(GuiGraphics parent, DeltaTracker delta) {
+        UiScale.render(parent, g -> renderUi(g, delta));
+    }
+
+    private static void renderUi(GuiGraphics g, DeltaTracker delta) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.options.hideGui) return;
         Theme theme = ThemeManager.get();
@@ -75,12 +80,6 @@ public final class TeamHud {
         };
     }
 
-    /** Приглашение появляется справа сверху, под картой, если она есть. */
-    private static int inviteTop() {
-        ModList mods = ModList.get();
-        return mods.isLoaded("ftbchunks") || mods.isLoaded("journeymap") || mods.isLoaded("xaerominimap") ? 90 : 10;
-    }
-
     // --- участники ---
 
     private static void members(GuiGraphics g, Theme t, Minecraft mc, Team team) {
@@ -100,7 +99,8 @@ public final class TeamHud {
         int more = shown.size() - visible;
         int h = 6 + 9 + visible * 23 + 3 + 8 + 6;
         // правый верх обычно занят картой, поэтому панель стоит в правом нижнем углу
-        int x = g.guiWidth() - HUD_W - 10, y = g.guiHeight() - h - 10;
+        int[] at = Anchors.place(Anchors.Element.TEAM_CARD, HUD_W, h, 10, 10);
+        int x = at[0], y = at[1];
         Draw.roundBox(g, x, y, HUD_W, h, t.beveled() ? 0 : 6f, Draw.alpha(t.c("hud.bg"), 0.92f), t.c("hud.border"));
         int text = t.beveled() ? 0xFFFFFFFF : t.c("text.primary");
         int muted = t.beveled() ? 0xFFC0C0C0 : t.c("text.muted");
@@ -356,12 +356,14 @@ public final class TeamHud {
     private static void invite(GuiGraphics g, Theme t, Minecraft mc) {
         if (TeamClient.invites.isEmpty() || mc.screen instanceof TeamScreen) return;
         TeamClient.Info invite = TeamClient.invites.get(0);
-        int w = 180, x = g.guiWidth() - w - 10, y = mc.screen == null ? inviteTop() : 10;
+        int w = 180;
         int inner = w - 14;
         List<String> first = Draw.wrapLabel(tr("rysteams.invite.progress"), inner - 12, 12, Weight.REGULAR, 3);
         List<String> second = Draw.wrapLabel(tr("rysteams.invite.keep"), inner - 12, 12, Weight.REGULAR, 2);
         int boxH = (first.size() + second.size()) * 8 + 11;
         int h = 7 + 20 + 5 + boxH + 5 + 19 + 7;
+        int[] at = Anchors.place(Anchors.Element.INVITES, w, h, 10, 10);
+        int x = at[0], y = at[1];
         g.pose().pushPose();
         g.pose().translate(0, 0, 350);
         if (t.beveled()) {

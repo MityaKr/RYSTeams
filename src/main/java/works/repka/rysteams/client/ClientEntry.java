@@ -61,6 +61,12 @@ public final class ClientEntry {
             ChatChannels.reset();
         });
         ChatChannels.init();
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.client.event.RegisterClientCommandsEvent e) ->
+            e.getDispatcher().register(net.minecraft.commands.Commands.literal("rysteams_open").executes(context -> {
+                Minecraft mc = Minecraft.getInstance();
+                mc.execute(() -> mc.setScreen(new TeamScreen()));
+                return 1;
+            })));
         NeoForge.EVENT_BUS.addListener(ClientEntry::onKey);
         NeoForge.EVENT_BUS.addListener(ClientEntry::onScroll);
     }
