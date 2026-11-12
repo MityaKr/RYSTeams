@@ -1365,7 +1365,8 @@ public final class TeamService {
         }
         // предложение и отмена по кругу не должны вытеснять ленту чужой команды
         long t = now();
-        String pair = team.id + ":" + other.id;
+        // ключ по игроку: пересоздание команды (новый id) кулдаун не обходит
+        String pair = p.getUUID() + ":" + other.id;
         Long until = MERGE_AGAIN.get(pair);
         if (until != null && until > t) {
             tooFast(p);
@@ -1396,14 +1397,26 @@ public final class TeamService {
         if (!m.fromOk || !m.intoOk) return;
         TeamStore s = store();
         Team from = s.teams.get(m.from), into = s.teams.get(m.into);
+        Component refusal = null;
         if (from != null && into != null && mergeTooBig(from, into)) {
-            toast(p, Component.translatable("rysteams.error.merge_full", TeamsConfig.maxMembers()), true);
-            return;
+            refusal = Component.translatable("rysteams.error.merge_full", TeamsConfig.maxMembers());
+        } else if (from != null && into != null) {
+            // пока ждали второго лидера, доски могли пополниться
+            refusal = mergeOverflow(from, into);
         }
-        // пока ждали второго лидера, доски могли пополниться
-        Component over = from == null || into == null ? null : mergeOverflow(from, into);
-        if (over != null) {
-            toast(p, over, true);
+        if (refusal != null) {
+            // предложение снимается целиком, как и обещает текст «предложите снова»: иначе оба флага остались бы true,
+            // кнопки «Подтвердить» ни у кого нет, а новое предложение упирается в merge_busy и кулдаун
+            MERGES.remove(m.into);
+            String suffix = ":" + m.into;
+            MERGE_AGAIN.keySet().removeIf(k -> k.endsWith(suffix));
+            toast(p, refusal, true);
+            Team other = team.id.equals(m.from) ? into : from;
+            if (other != null) {
+                Team.Member leader = other.leader();
+                ServerPlayer leaderOnline = leader == null ? null : online(leader.id);
+                if (leaderOnline != null && leaderOnline != p) toast(leaderOnline, refusal, true);
+            }
             return;
         }
         executeMerge(m);
