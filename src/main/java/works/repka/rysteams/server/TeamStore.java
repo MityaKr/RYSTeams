@@ -22,14 +22,16 @@ public final class TeamStore extends SavedData {
     private static final int VERSION = 1;
     private static final String NAME = "rysteams";
 
-    /** Распущенная команда: лидер может вернуть её в течение недели. */
-    public record Archived(CompoundTag team, UUID leader, long time) {}
+    /** Распущенная команда: лидер может вернуть её в течение недели. Распущенную администратором возвращает только администратор. */
+    public record Archived(CompoundTag team, UUID leader, long time, boolean byAdmin) {}
 
     public final Map<UUID, Team> teams = new LinkedHashMap<>();
     public final Map<UUID, UUID> byPlayer = new HashMap<>();
     public final List<Archived> archive = new ArrayList<>();
     public final Set<UUID> hideCoords = new HashSet<>();
     public boolean ftbImported;
+    /** Общая команда режима server. */
+    public UUID serverTeam;
 
     public static TeamStore get(MinecraftServer server) {
         return server.overworld().getDataStorage().computeIfAbsent(new SavedData.Factory<>(TeamStore::new, TeamStore::load), NAME);
@@ -44,10 +46,11 @@ public final class TeamStore extends SavedData {
         }
         for (Tag x : tag.getList("archive", Tag.TAG_COMPOUND)) {
             CompoundTag a = (CompoundTag) x;
-            store.archive.add(new Archived(a.getCompound("team"), a.getUUID("leader"), a.getLong("time")));
+            store.archive.add(new Archived(a.getCompound("team"), a.getUUID("leader"), a.getLong("time"), a.getBoolean("admin")));
         }
         for (Tag x : tag.getList("hidden", Tag.TAG_STRING)) store.hideCoords.add(UUID.fromString(x.getAsString()));
         store.ftbImported = tag.getBoolean("ftb");
+        if (tag.hasUUID("serverTeam")) store.serverTeam = tag.getUUID("serverTeam");
         return store;
     }
 
@@ -63,6 +66,7 @@ public final class TeamStore extends SavedData {
             x.put("team", a.team);
             x.putUUID("leader", a.leader);
             x.putLong("time", a.time);
+            x.putBoolean("admin", a.byAdmin);
             archived.add(x);
         }
         tag.put("archive", archived);
@@ -70,6 +74,7 @@ public final class TeamStore extends SavedData {
         for (UUID id : hideCoords) hidden.add(StringTag.valueOf(id.toString()));
         tag.put("hidden", hidden);
         tag.putBoolean("ftb", ftbImported);
+        if (serverTeam != null) tag.putUUID("serverTeam", serverTeam);
         return tag;
     }
 

@@ -54,6 +54,11 @@ public final class FtbImport {
                     skipped++;
                     continue;
                 }
+                // владелец мог уже состоять в другой команде: лидером становится старший из оставшихся
+                TeamService.ensureLeader(team);
+                team.name = TeamService.freeName(team.name, team);
+                int max = works.repka.rysteams.TeamsConfig.maxMembers();
+                if (max > 0 && team.members.size() > max) RYSTeams.LOG.warn("Команда FTB {} перенесена сверх лимита: {} из {}", team.name, team.members.size(), max);
                 store.teams.put(team.id, team);
                 for (UUID id : team.members.keySet()) store.byPlayer.put(id, team.id);
                 teams++;
@@ -110,7 +115,9 @@ public final class FtbImport {
     private static Team convert(Map<?, ?> root, MinecraftServer server) {
         UUID id = UUID.fromString((String) root.get("id"));
         Map<?, ?> props = root.get("properties") instanceof Map<?, ?> m ? m : Map.of();
-        String name = props.get("ftbteams:display_name") instanceof String s && !s.isBlank() ? s : "Team";
+        String name = props.get("ftbteams:display_name") instanceof String s && !s.isBlank() ? TeamService.normName(s) : "Team";
+        if (name.length() < 3) name = "Team";
+        if (name.length() > 24) name = name.substring(0, 24).strip();
         int color = Team.COLORS[Math.floorMod(id.hashCode(), Team.COLORS.length)];
         if (props.get("ftbteams:color") instanceof String c && c.startsWith("#")) color = Integer.parseUnsignedInt(c.substring(1), 16) & 0xFFFFFF;
         long now = TeamService.now();
@@ -128,7 +135,8 @@ public final class FtbImport {
             };
             if (role == null) continue;
             UUID player = UUID.fromString((String) e.getKey());
-            team.members.put(player, new Team.Member(player, nameOf(server, player), role, now, 0));
+            // когда игрок заходил, FTB не хранит: считаем, что сейчас, иначе автопередача сразу сместит лидера
+            team.members.put(player, new Team.Member(player, nameOf(server, player), role, now, now));
         }
         return team;
     }

@@ -19,7 +19,12 @@ import works.repka.rysteams.network.ModNetwork;
 
 /** Что клиент знает о командах. Заполняется только сообщениями сервера. */
 public final class TeamClient {
-    public record Info(UUID id, String name, int color, String icon, int count, String join, String by, long until) {}
+    /** @param pending игрок уже отправил заявку в эту команду */
+    public record Info(UUID id, String name, int color, String icon, int count, String join, String by, long until, boolean pending) {
+        public Info(UUID id, String name, int color, String icon, int count, String join, String by, long until) {
+            this(id, name, color, icon, count, join, by, until, false);
+        }
+    }
 
     public record Online(UUID id, String name, boolean free) {}
 
@@ -99,16 +104,30 @@ public final class TeamClient {
 
     private static void state(CompoundTag t) {
         team = t.contains("team") ? Team.load(t.getCompound("team")) : null;
-        teams = infos(t, "teams");
+        // сервер шлёт общий список всех команд и всех игроков: себя и свою команду убираем здесь
+        java.util.Set<String> pending = new java.util.HashSet<>();
+        for (Tag x : t.getList("pending", Tag.TAG_STRING)) pending.add(x.getAsString());
+        List<Info> all = new ArrayList<>();
+        for (Info i : infos(t, "teams")) {
+            if (team != null && i.id().equals(team.id)) continue;
+            all.add(pending.contains(i.id().toString()) ? new Info(i.id(), i.name(), i.color(), i.icon(), i.count(), i.join(), i.by(), i.until(), true) : i);
+        }
+        teams = all;
         invites = infos(t, "invites");
         allies = infos(t, "allies");
         allyOffers = infos(t, "allyOffers");
+        Minecraft mc = Minecraft.getInstance();
+        UUID self = mc.player == null ? null : mc.player.getUUID();
         List<Online> people = new ArrayList<>();
         for (Tag x : t.getList("online", Tag.TAG_COMPOUND)) {
             CompoundTag c = (CompoundTag) x;
+            if (c.getUUID("id").equals(self)) continue;
             people.add(new Online(c.getUUID("id"), c.getString("name"), c.getBoolean("free")));
         }
         online = people;
+        // присутствие бывших сокомандников больше не нужно
+        if (team == null) PRESENCE.clear();
+        else PRESENCE.keySet().retainAll(team.members.keySet());
         hideCoords = t.getBoolean("hide");
         serverMode = t.getBoolean("serverMode");
         restore = t.getString("restore");

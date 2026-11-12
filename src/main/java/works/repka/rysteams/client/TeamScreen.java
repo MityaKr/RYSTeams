@@ -360,7 +360,7 @@ public final class TeamScreen extends ScaledScreen {
 
     private void invitePopup(GuiGraphics g, Theme t) {
         List<TeamClient.Online> free = new ArrayList<>();
-        for (TeamClient.Online o : TeamClient.online) if (o.free()) free.add(o);
+        for (TeamClient.Online o : TeamClient.online) if (o.free() && !o.id().equals(me())) free.add(o);
         int w = 160, rowH = 20, h = 8 + Math.max(1, free.size()) * rowH + 12;
         int x = px + pw - 9 - w, y = py + HEADER + 2;
         g.pose().pushPose();

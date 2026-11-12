@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.EnumMap;
 import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -21,8 +20,8 @@ import works.repka.rysteams.api.Role;
 
 /** Команда. Один и тот же класс хранится на сервере и приходит клиенту: формат один, NBT. */
 public final class Team {
-    /** Сколько событий ленты хранить и отдавать клиенту. */
-    public static final int FEED_LIMIT = 500;
+    /** Сколько событий ленты хранить и отдавать клиенту. Старше отданного клиент не видит, поэтому храним с небольшим запасом. */
+    public static final int FEED_LIMIT = 150;
     public static final int FEED_SENT = 120;
     /** Двенадцать цветов команды, различимых по яркости. */
     public static final int[] COLORS = {0x2E8B57, 0x3A7BD5, 0x7A4FD1, 0xC0392B, 0xD47C3E, 0xE4B23C,
@@ -236,8 +235,14 @@ public final class Team {
         ListTag allyList = new ListTag();
         for (UUID ally : allies) allyList.add(StringTag.valueOf(ally.toString()));
         t.put("allies", allyList);
-        CompoundTag req = new CompoundTag();
-        requests.forEach((k, v) -> req.putString(k.toString(), v));
+        // списком: у CompoundTag порядок ключей не сохраняется, а первой в панели должна быть самая ранняя заявка
+        ListTag req = new ListTag();
+        requests.forEach((k, v) -> {
+            CompoundTag x = new CompoundTag();
+            x.putUUID("id", k);
+            x.putString("name", v);
+            req.add(x);
+        });
         t.put("requests", req);
         ListTag feedList = new ListTag();
         int n = 0;
@@ -279,11 +284,17 @@ public final class Team {
         }
         team.permissions.put(Permission.MANAGE, Permission.MANAGE.defaults());
         for (Tag x : t.getList("allies", Tag.TAG_STRING)) team.allies.add(UUID.fromString(x.getAsString()));
-        CompoundTag req = t.getCompound("requests");
-        Map<String, String> sorted = new HashMap<>();
-        for (String key : req.getAllKeys()) sorted.put(key, req.getString(key));
-        sorted.forEach((k, v) -> team.requests.put(UUID.fromString(k), v));
-        for (Tag x : t.getList("feed", Tag.TAG_COMPOUND)) team.feed.addLast(Feed.load((CompoundTag) x));
+        if (t.getTagType("requests") == Tag.TAG_LIST) {
+            for (Tag x : t.getList("requests", Tag.TAG_COMPOUND)) team.requests.put(((CompoundTag) x).getUUID("id"), ((CompoundTag) x).getString("name"));
+        } else {
+            // прежний формат: словарь без порядка
+            CompoundTag req = t.getCompound("requests");
+            for (String key : req.getAllKeys()) team.requests.put(UUID.fromString(key), req.getString(key));
+        }
+        for (Tag x : t.getList("feed", Tag.TAG_COMPOUND)) {
+            if (team.feed.size() >= FEED_LIMIT) break;
+            team.feed.addLast(Feed.load((CompoundTag) x));
+        }
         for (Tag x : t.getList("marks", Tag.TAG_COMPOUND)) team.marks.add(Mark.load((CompoundTag) x));
         for (Tag x : t.getList("notes", Tag.TAG_COMPOUND)) team.notes.add(Note.load((CompoundTag) x));
         for (Tag x : t.getList("todos", Tag.TAG_COMPOUND)) team.todos.add(Todo.load((CompoundTag) x));

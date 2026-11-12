@@ -11,6 +11,7 @@ public final class TeamsConfig {
     private static final ModConfigSpec.IntValue MAX_MEMBERS;
     private static final ModConfigSpec.ConfigValue<String> SERVER_TEAM;
     private static final ModConfigSpec.ConfigValue<List<? extends String>> LOCKED;
+    private static final ModConfigSpec.IntValue MAX_NOTES, MAX_TODOS, MAX_MARKS;
 
     static {
         ModConfigSpec.Builder b = new ModConfigSpec.Builder();
@@ -20,6 +21,9 @@ public final class TeamsConfig {
         SERVER_TEAM = b.comment("Team name in server mode").define("serverTeamName", "Server");
         LOCKED = b.comment("Permissions team leaders cannot change, for example [\"see_alerts\"]")
             .defineListAllowEmpty("lockedPermissions", List.of(), () -> "invite", o -> o instanceof String);
+        MAX_NOTES = b.comment("Notes per team").defineInRange("maxNotes", 100, 1, 1000);
+        MAX_TODOS = b.comment("Todos per team").defineInRange("maxTodos", 200, 1, 1000);
+        MAX_MARKS = b.comment("Permanent marks per team").defineInRange("maxMarks", 100, 1, 1000);
         SPEC = b.build();
     }
 
@@ -39,6 +43,18 @@ public final class TeamsConfig {
 
     public static String serverTeamName() {
         return SPEC.isLoaded() ? SERVER_TEAM.get() : "Server";
+    }
+
+    public static int maxNotes() {
+        return SPEC.isLoaded() ? MAX_NOTES.get() : 100;
+    }
+
+    public static int maxTodos() {
+        return SPEC.isLoaded() ? MAX_TODOS.get() : 200;
+    }
+
+    public static int maxMarks() {
+        return SPEC.isLoaded() ? MAX_MARKS.get() : 100;
     }
 
     public static boolean isLocked(Permission permission) {

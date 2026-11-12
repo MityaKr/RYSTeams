@@ -213,5 +213,13 @@
   "rysteams.lobby.closed": "Закрытые команды не показаны; туда только по приглашению",
   "rysteams.lobby.restore": "Вернуть команду %s",
   "rysteams.admin.count": "Команд: %s",
-  "rysteams.admin.imported": "Из FTB Teams перенесено команд: %s, игроков: %s, пропущено: %s"
+  "rysteams.admin.imported": "Из FTB Teams перенесено команд: %s, игроков: %s, пропущено: %s",
+  "rysteams.error.limit": "Достигнут предел для команды",
+  "rysteams.error.too_fast": "Слишком часто, подожди немного",
+  "rysteams.error.mark_near": "Рядом уже есть метка «%s»",
+  "rysteams.error.merge_busy": "Одна из команд уже участвует в слиянии",
+  "rysteams.error.merge_full": "После слияния в команде будет больше %s человек",
+  "rysteams.toast.kicked": "Тебя исключили из команды %s, решение: %s",
+  "rysteams.toast.disbanded": "Команда %s распущена",
+  "rysteams.toast.disbanded_restore": "Команда %s распущена. Вернуть её можно в течение недели"
 }

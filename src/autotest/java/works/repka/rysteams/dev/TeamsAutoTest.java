@@ -212,9 +212,9 @@ public final class TeamsAutoTest {
         step("merge confirm other", () -> server(() -> {
             // второго лидера в мире нет: подтверждаем за него напрямую
             try {
-                var f = TeamService.class.getDeclaredField("merge");
+                var f = TeamService.class.getDeclaredField("MERGES");
                 f.setAccessible(true);
-                Object m = f.get(null);
+                Object m = ((java.util.Map<?, ?>) f.get(null)).values().iterator().next();
                 var ok = m.getClass().getDeclaredField("fromOk");
                 ok.setAccessible(true);
                 ok.setBoolean(m, true);
