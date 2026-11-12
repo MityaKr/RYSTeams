@@ -261,6 +261,7 @@ public final class TeamsAutoTest {
         step("invite toast", () -> {
             TeamClient.invites = List.of(new TeamClient.Info(OTHER_TEAM, "Болотники", Team.COLORS[2], "minecraft:lily_pad", 3, "INVITE", "Vasya",
                 System.currentTimeMillis() + 240_000));
+            TeamClient.inviteShownUntil = System.currentTimeMillis() + TeamClient.INVITE_SHOW_MS;
             works.repka.rysteams.client.ClientEntry.PING.setDown(true);
         }, 12);
         shot("invite_and_ping_bar");

@@ -38,7 +38,16 @@ public final class TeamHud {
     private TeamHud() {}
 
     public static void render(GuiGraphics parent, DeltaTracker delta) {
+        if (!anything(Minecraft.getInstance())) return;
         UiScale.render(parent, g -> renderUi(g, delta));
+    }
+
+    /** Те же условия, что в {@link #renderUi}: когда рисовать нечего, слой не создаёт графику и не сбрасывает буфер. */
+    private static boolean anything(Minecraft mc) {
+        if (mc.player == null || mc.level == null || mc.options.hideGui) return false;
+        if (TeamClient.toast != null || TeamClient.inviteVisible() && !(mc.screen instanceof TeamScreen)) return true;
+        if (mc.screen != null) return false;
+        return TeamClient.team != null || !TeamClient.PINGS.isEmpty() || TeamClient.waypoint != null || ClientEntry.pingHeld || lookedAtPlayer() != null;
     }
 
     private static void renderUi(GuiGraphics g, DeltaTracker delta) {
@@ -46,6 +55,7 @@ public final class TeamHud {
         if (mc.player == null || mc.options.hideGui) return;
         Theme theme = ThemeManager.get();
         if (mc.screen == null) {
+            camera(mc, g);
             worldMarkers(g, theme, mc);
             if (TeamClient.team != null && ClientEntry.SHOW_HUD.get()) members(g, theme, mc, TeamClient.team);
             playerCard(g, theme, mc);
@@ -57,6 +67,10 @@ public final class TeamHud {
 
     private static String tr(String key, Object... args) {
         return Component.translatable(key, args).getString();
+    }
+
+    private static String key(net.minecraft.client.KeyMapping mapping) {
+        return mapping.getTranslatedKeyMessage().getString();
     }
 
     /** Лицо игрока: у того, кого клиент не знает, обычный скин. */
@@ -142,30 +156,29 @@ public final class TeamHud {
         if (p == null) Draw.rect(g, x + 5, y + 4, 11, 11, Draw.alpha(t.c("status.bg"), 0.45f));
         Draw.dot(g, x + 13, y + 13, 6, t.c("status.bg"));
         Draw.dot(g, x + 14, y + 14, 4, t.c(p != null ? "state.ok" : "text.dim"));
-        String line, metres = "", arrow = "";
+        String line, metres = "";
+        float arrow = Float.NaN;
         if (p == null) {
             line = tr("rysteams.status.offline");
         } else {
             line = p.status().isEmpty() ? dimensionName(p.dimension()) : p.status();
-            String[] d = distance(mc, p);
-            metres = d[0];
-            arrow = d[1];
+            if (nearby(mc, p)) {
+                double dx = p.x() + 0.5 - mc.player.getX(), dz = p.z() + 0.5 - mc.player.getZ();
+                metres = tr("rysteams.unit.m", (int) Math.round(Math.sqrt(dx * dx + dz * dz)));
+                // значок стрелки смотрит вправо, поэтому поворот отсчитывается от правого направления
+                arrow = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 180 - mc.player.getYRot());
+            }
         }
         float rightW = metres.isEmpty() ? 0 : Draw.labelWidth(metres, 11.5f, Weight.REGULAR);
         Draw.label(g, Draw.ellipsize(m.name, w - 22 - rightW - 5, 12, Weight.REGULAR), x + 21, y + 6.5f, 12, Weight.REGULAR, Draw.alpha(text, alpha));
         Draw.label(g, Draw.ellipsize(line, w - 22 - rightW - 5, 10.5f, Weight.REGULAR), x + 21, y + 14f, 10.5f, Weight.REGULAR, muted);
         if (!metres.isEmpty()) Draw.label(g, metres, x + w - 4 - Draw.labelWidth(metres, 11.5f, Weight.REGULAR), y + 6.5f, 11.5f, Weight.REGULAR, t.c("button.fg"));
-        if (!arrow.isEmpty()) Icons.drawRotated(g, Icons.Shape.ARROW, x + w - 4 - 7f, y + 10.5f, 7f, Float.parseFloat(arrow), dim);
+        if (!Float.isNaN(arrow)) Icons.drawRotated(g, Icons.Shape.ARROW, x + w - 4 - 7f, y + 10.5f, 7f, arrow, dim);
     }
 
-    /** Расстояние и стрелка: относительно того, куда смотрит игрок. */
-    private static String[] distance(Minecraft mc, TeamClient.Pres p) {
-        if (!p.hasPos() || !p.dimension().equals(mc.level.dimension().location().toString())) return new String[] {"", ""};
-        double dx = p.x() + 0.5 - mc.player.getX(), dz = p.z() + 0.5 - mc.player.getZ();
-        int metres = (int) Math.round(Math.sqrt(dx * dx + dz * dz));
-        double angle = Math.toDegrees(Math.atan2(dz, dx)) - 90 - mc.player.getYRot();
-        // значок стрелки смотрит вправо, поэтому поворот отсчитывается от правого направления
-        return new String[] {tr("rysteams.unit.m", metres), Float.toString((float) (angle - 90))};
+    /** Расстояние и стрелка есть, только если координаты открыты и игрок в том же измерении. */
+    private static boolean nearby(Minecraft mc, TeamClient.Pres p) {
+        return p.hasPos() && p.dimension().equals(mc.level.dimension().location().toString());
     }
 
     // --- метки и пинги в мире ---
@@ -199,10 +212,14 @@ public final class TeamHud {
         }
     }
 
+    /**
+     * Треугольник вершиной вниз: строки простыми заливками, они уходят одной пачкой, без отдельной отрисовки на строку.
+     * Ширина строки той же чётности, что основание, чтобы он был симметричным.
+     */
     private static void triangle(GuiGraphics g, int cx, int y, int w, int h, int color) {
         for (int i = 0; i < h; i++) {
-            float rowW = w * (1f - i / (float) h);
-            Draw.round(g, cx - rowW / 2f, y + i, rowW, 1, 0.02f, color);
+            int rowW = Math.max(1, w - 2 * Math.round(i * w / (2f * h)));
+            Draw.rect(g, cx - rowW / 2, y + i, rowW, 1, color);
         }
     }
 
@@ -218,7 +235,7 @@ public final class TeamHud {
         float x = s[0] - width / 2f, y = ringY - 8 - height;
         Draw.roundBox(g, x, y, width, height, 4f, Draw.alpha(t.c("hud.bg"), 0.94f), color);
         Draw.dot(g, (int) x + 5, (int) y + 5, 9, color);
-        String initial = p.by().substring(0, 1).toUpperCase(java.util.Locale.ROOT);
+        String initial = p.by().isEmpty() ? "?" : p.by().substring(0, 1).toUpperCase(java.util.Locale.ROOT);
         Draw.label(g, initial, x + 5 + 4.5f - Draw.labelWidth(initial, 10, Weight.SEMIBOLD) / 2f, y + 9.5f, 10, Weight.SEMIBOLD, 0xFFFFFFFF);
         Draw.label(g, title, x + 18, y + 6.5f, 12, Weight.REGULAR, t.c("text.primary"));
         Draw.label(g, sub, x + 18, y + 14f, 10.5f, Weight.REGULAR, t.c("text.muted"));
@@ -258,16 +275,25 @@ public final class TeamHud {
         return (int) Math.round(Math.sqrt(dx * dx + dz * dz));
     }
 
+    /** Камера кадра: поворот и фокус считаются один раз, а не на каждую метку. */
+    private static final Quaternionf CAMERA = new Quaternionf();
+    private static final Vector3f VIEW = new Vector3f();
+    private static Vec3 eye = Vec3.ZERO;
+    private static float focal;
+
+    private static void camera(Minecraft mc, GuiGraphics g) {
+        Camera camera = mc.gameRenderer.getMainCamera();
+        eye = camera.getPosition();
+        CAMERA.set(camera.rotation()).conjugate();
+        focal = g.guiHeight() / 2f / (float) Math.tan(Math.toRadians(mc.options.fov().get()) / 2);
+    }
+
     /** Точка мира в координатах GUI; за спиной null, за краем прижимается к краю. */
     @Nullable
     private static int[] project(Minecraft mc, GuiGraphics g, double x, double y, double z) {
-        Camera camera = mc.gameRenderer.getMainCamera();
-        Vec3 eye = camera.getPosition();
-        Vector3f view = new Vector3f((float) (x - eye.x), (float) (y - eye.y), (float) (z - eye.z));
-        new Quaternionf(camera.rotation()).conjugate().transform(view);
+        Vector3f view = CAMERA.transform(VIEW.set((float) (x - eye.x), (float) (y - eye.y), (float) (z - eye.z)));
         if (view.z >= -0.1f) return null;
         float halfH = g.guiHeight() / 2f;
-        float focal = halfH / (float) Math.tan(Math.toRadians(mc.options.fov().get()) / 2);
         int sx = Math.round(g.guiWidth() / 2f + view.x / -view.z * focal);
         int sy = Math.round(halfH - view.y / -view.z * focal);
         return new int[] {Math.max(40, Math.min(g.guiWidth() - 40, sx)), Math.max(30, Math.min(g.guiHeight() - 20, sy))};
@@ -296,7 +322,7 @@ public final class TeamHud {
         String title = target.getGameProfile().getName() + (free ? " · " + tr("rysteams.card.free") : "");
         String sub = tr("rysteams.card.hint", (int) mc.player.distanceTo(target));
         boolean invite = free && TeamClient.can(works.repka.rysteams.api.Permission.INVITE);
-        String inviteLabel = tr("rysteams.card.invite"), pingLabel = tr("rysteams.card.ping", ClientEntry.PING.getTranslatedKeyMessage().getString());
+        String inviteLabel = tr("rysteams.card.invite", key(ClientEntry.ACCEPT)), pingLabel = tr("rysteams.card.ping", ClientEntry.PING.getTranslatedKeyMessage().getString());
         int textW = (int) Math.ceil(Math.max(Draw.labelWidth(title, 12.5f, Weight.SEMIBOLD), Draw.labelWidth(sub, 11, Weight.REGULAR)));
         int iw = invite ? (int) Math.ceil(Draw.labelWidth(inviteLabel, 12, Weight.SEMIBOLD)) + 12 : 0;
         int pw = (int) Math.ceil(Draw.labelWidth(pingLabel, 12, Weight.REGULAR)) + 10;
@@ -354,7 +380,7 @@ public final class TeamHud {
     // --- приглашение и уведомления ---
 
     private static void invite(GuiGraphics g, Theme t, Minecraft mc) {
-        if (TeamClient.invites.isEmpty() || mc.screen instanceof TeamScreen) return;
+        if (!TeamClient.inviteVisible() || mc.screen instanceof TeamScreen) return;
         TeamClient.Info invite = TeamClient.invites.get(0);
         int w = 180;
         int inner = w - 14;
@@ -395,7 +421,7 @@ public final class TeamHud {
             }
         }
         int members = invite.count();
-        Draw.label(g, tr("rysteams.count.members." + (members == 1 ? "one" : members >= 2 && members <= 4 ? "few" : "many"), members), tileX + 25, y + 21.5f, 11.5f, Weight.REGULAR, t.c("text.muted"));
+        Draw.label(g, TeamScreen.plural("rysteams.count.members", members), tileX + 25, y + 21.5f, 11.5f, Weight.REGULAR, t.c("text.muted"));
         int bx = x + 7, by = y + 7 + 20 + 5;
         Draw.roundBox(g, bx, by, inner, boxH, 5f, t.c("status.bg"), t.c("status.border"));
         float ly = by + 8;
@@ -408,7 +434,8 @@ public final class TeamHud {
             ly += 8;
         }
         int rowY = by + boxH + 5, rx = x + 7;
-        String accept = tr("rysteams.invite.accept"), fresh = tr("rysteams.invite.fresh"), no = tr("rysteams.invite.no");
+        String accept = tr("rysteams.invite.accept", key(ClientEntry.ACCEPT)), fresh = tr("rysteams.invite.fresh_key", key(ClientEntry.FRESH)),
+            no = tr("rysteams.invite.no", key(ClientEntry.DECLINE));
         int aw = (int) Math.ceil(Draw.labelWidth(accept, 13, Weight.SEMIBOLD)) + 16;
         Draw.round(g, rx, rowY, aw, 19, 5f, t.c("accent"));
         Draw.label(g, accept, rx + 8, rowY + 9.5f, 13, Weight.SEMIBOLD, t.c("accent.text"));

@@ -30,6 +30,10 @@ public final class ClientEntry {
     public static final KeyMapping OPEN = new KeyMapping("key.rysteams.open", KeyConflictContext.IN_GAME, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_G, CATEGORY);
     /** Средняя кнопка занята выбором блока, поэтому пинг на V. */
     public static final KeyMapping PING = new KeyMapping("key.rysteams.ping", KeyConflictContext.IN_GAME, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_V, CATEGORY);
+    /** Ответ на приглашение: работает, пока видна плашка приглашения. С зажатым Alt «принять» зовёт игрока под прицелом. */
+    public static final KeyMapping ACCEPT = new KeyMapping("key.rysteams.accept", KeyConflictContext.IN_GAME, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_Y, CATEGORY);
+    public static final KeyMapping DECLINE = new KeyMapping("key.rysteams.decline", KeyConflictContext.IN_GAME, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_N, CATEGORY);
+    public static final KeyMapping FRESH = new KeyMapping("key.rysteams.fresh", KeyConflictContext.IN_GAME, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_U, CATEGORY);
     public static final String[] PING_KINDS = {"here", "danger", "resource", "help", "mark"};
 
     public static final ModConfigSpec CLIENT_SPEC;
@@ -56,6 +60,9 @@ public final class ClientEntry {
         modBus.addListener((RegisterKeyMappingsEvent e) -> {
             e.register(OPEN);
             e.register(PING);
+            e.register(ACCEPT);
+            e.register(DECLINE);
+            e.register(FRESH);
         });
         modBus.addListener((RegisterGuiLayersEvent e) ->
             e.registerAboveAll(ResourceLocation.fromNamespaceAndPath(RYSTeams.MODID, "hud"), TeamHud::render));
@@ -71,7 +78,6 @@ public final class ClientEntry {
                 mc.execute(() -> mc.setScreen(new TeamScreen()));
                 return 1;
             })));
-        NeoForge.EVENT_BUS.addListener(ClientEntry::onKey);
         NeoForge.EVENT_BUS.addListener(ClientEntry::onScroll);
     }
 
@@ -79,6 +85,9 @@ public final class ClientEntry {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return;
         while (OPEN.consumeClick()) mc.setScreen(new TeamScreen());
+        while (ACCEPT.consumeClick()) accept();
+        while (DECLINE.consumeClick()) answer("no");
+        while (FRESH.consumeClick()) answer("fresh");
         long now = System.currentTimeMillis();
         TeamClient.PINGS.removeIf(p -> p.until() < now);
         if (TeamClient.waypoint != null && TeamClient.waypoint.until() < now) TeamClient.waypoint = null;
@@ -120,20 +129,23 @@ public final class ClientEntry {
         e.setCanceled(true);
     }
 
-    /** Y и N отвечают на приглашение, с зажатым Alt зовут игрока, на которого смотришь. */
-    private static void onKey(InputEvent.Key e) {
-        Minecraft mc = Minecraft.getInstance();
-        if (e.getAction() != GLFW.GLFW_PRESS || mc.screen != null || mc.player == null) return;
-        if (e.getKey() != GLFW.GLFW_KEY_Y && e.getKey() != GLFW.GLFW_KEY_N && e.getKey() != GLFW.GLFW_KEY_U) return;
+    /** «Принять»: с зажатым Alt зовёт игрока под прицелом, иначе отвечает на приглашение. */
+    private static void accept() {
         Player target = TeamHud.lookedAtPlayer();
-        if (target != null && e.getKey() == GLFW.GLFW_KEY_Y && TeamClient.can(Permission.INVITE)) {
-            TeamClient.action("invite", "player", target.getUUID());
+        if (target != null) {
+            if (TeamClient.can(Permission.INVITE)) TeamClient.action("invite", "player", target.getUUID());
             return;
         }
-        if (TeamClient.invites.isEmpty()) return;
+        answer("accept");
+    }
+
+    /** Клавиши ответа срабатывают, только пока плашка приглашения на экране: иначе их нажимали бы случайно. */
+    private static void answer(String answer) {
+        if (!TeamClient.inviteVisible()) return;
         CompoundTag t = new CompoundTag();
         t.putUUID("team", TeamClient.invites.get(0).id());
-        t.putString("answer", e.getKey() == GLFW.GLFW_KEY_Y ? "accept" : e.getKey() == GLFW.GLFW_KEY_U ? "fresh" : "no");
+        t.putString("answer", answer);
         TeamClient.action("invite_reply", t);
+        TeamClient.inviteShownUntil = 0;
     }
 }

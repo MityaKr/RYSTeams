@@ -44,7 +44,13 @@ public final class TeamScreen extends ScaledScreen {
     private final Kit.Hits hits = new Kit.Hits();
     private int px, py, pw, ph, mx, my;
     private int feedScroll, feedContent, bodyScroll, bodyContent;
-    private final Scroller feedScroller = new Scroller(), bodyScroller = new Scroller();
+    private final Scroller feedScroller = new Scroller(), bodyScroller = new Scroller(), lobbyScroller = new Scroller();
+    private int lobbyContent;
+    /** Переносы строк ленты и заметок: замер ширины дорогой, а текст между кадрами почти не меняется. */
+    private final java.util.Map<String, List<String>> wraps = new java.util.HashMap<>();
+    private String wrapsFor = "";
+    private Team missedFor;
+    private List<String> missed = List.of();
     private String filter = "";
     private UUID menuFor;
     private boolean invitePopup;
@@ -105,7 +111,7 @@ public final class TeamScreen extends ScaledScreen {
         return Minecraft.getInstance().player.getUUID();
     }
 
-    private static String plural(String key, int n) {
+    static String plural(String key, int n) {
         int a = Math.abs(n) % 100, b = a % 10;
         String form = a >= 11 && a <= 14 ? "many" : b == 1 ? "one" : b >= 2 && b <= 4 ? "few" : "many";
         return tr(key + "." + form, n);
@@ -120,6 +126,12 @@ public final class TeamScreen extends ScaledScreen {
         tooltip = null;
         for (Field b : boxes) b.setVisible(false);
         renderBackground(g, mouseX, mouseY, partialTick);
+        // ширина текста зависит от темы и масштаба: при их смене переносы считаются заново
+        String sig = System.identityHashCode(t) + ":" + works.repka.ryscore.ui.Draw.scale();
+        if (!sig.equals(wrapsFor) || wraps.size() > 2000) {
+            wraps.clear();
+            wrapsFor = sig;
+        }
         Team team = TeamClient.team;
         if (team == null) {
             lobby(g, t);
@@ -144,6 +156,11 @@ public final class TeamScreen extends ScaledScreen {
         }
         TeamHud.toast(g, t, Minecraft.getInstance());
         if (tooltip != null) g.renderComponentTooltip(Minecraft.getInstance().font, tooltip, mouseX, mouseY);
+    }
+
+    private List<String> wrapped(String text, float width, float px_, Weight weight, int lines) {
+        String key = text + '\u0001' + width + '\u0001' + px_ + '\u0001' + weight + '\u0001' + lines;
+        return wraps.computeIfAbsent(key, k -> Draw.wrapLabel(text, width, px_, weight, lines));
     }
 
     private interface Content {
@@ -562,14 +579,19 @@ public final class TeamScreen extends ScaledScreen {
             });
             cx -= 2;
         }
-        Team.Member self = team.members.get(me());
-        long since = self == null ? 0 : self.lastSeen;
-        List<String> missed = new ArrayList<>();
-        if (since > 0) {
-            for (Team.Feed f : team.feed) {
-                if (f.time() <= since) break;
-                missed.add(TeamClient.text(f.text()).getString());
+        if (team != missedFor) {
+            // новое состояние приходит новым экземпляром команды
+            missedFor = team;
+            Team.Member self = team.members.get(me());
+            long since = self == null ? 0 : self.lastSeen;
+            List<String> list = new ArrayList<>();
+            if (since > 0) {
+                for (Team.Feed f : team.feed) {
+                    if (f.time() <= since) break;
+                    list.add(TeamClient.text(f.text()).getString());
+                }
             }
+            missed = list;
         }
         int summaryH = missed.isEmpty() ? 0 : 26;
         int top = y + 15, listH = h - 15 - (summaryH > 0 ? summaryH + 5 : 0);
@@ -612,7 +634,7 @@ public final class TeamScreen extends ScaledScreen {
         int chipW = (int) Math.ceil(Draw.labelWidth(tr("rysteams.source." + src), 10.5f, Weight.SEMIBOLD) + 7);
         int textX = x + 6 + 19 + 5 + chipW + 5 + 10 + 5;
         int textW = x + w - 6 - actionW - textX;
-        List<String> lines = Draw.wrapLabel(TeamClient.text(f.text()).getString(), textW, 12.5f, Weight.REGULAR, 2);
+        List<String> lines = wrapped(TeamClient.text(f.text()).getString(), textW, 12.5f, Weight.REGULAR, 2);
         int h = lines.size() > 1 ? 25 : 23;
         if (y + h < top || y > bottom) return h;
         Draw.roundBox(g, x, y, w, h, 5f, t.c("card.bg"), f.alert() ? t.c("src.pulse.border") : t.c("panel.border"));
@@ -731,7 +753,7 @@ public final class TeamScreen extends ScaledScreen {
             ly += 22;
         }
         for (Team.Note n : team.notes) {
-            List<String> lines = Draw.wrapLabel(n.text, w - 26, 12.5f, Weight.REGULAR, 8);
+            List<String> lines = wrapped(n.text, w - 26, 12.5f, Weight.REGULAR, 8);
             int h = lines.size() * 8 + 18;
             Draw.roundBox(g, left, ly, w, h, 5f, t.c("card.bg"), t.c("panel.border"));
             float ty = ly + 8;
@@ -804,7 +826,11 @@ public final class TeamScreen extends ScaledScreen {
     }
 
     private void smallDelete(GuiGraphics g, Theme t, int x, int y, Runnable action) {
-        works.repka.ryscore.ui.Icons.draw(g, works.repka.ryscore.ui.Icons.Shape.CROSS, x, y, 9f, hover(x, y, 11, 11) ? t.c("state.bad") : t.c("text.dim"));
+        smallDelete(g, t, x, y, false, action);
+    }
+
+    private void smallDelete(GuiGraphics g, Theme t, int x, int y, boolean armedNow, Runnable action) {
+        Icons.draw(g, Icons.Shape.CROSS, x, y, 9f, armedNow || hover(x, y, 11, 11) ? t.c("state.bad") : t.c("text.dim"));
         hits.add(x, y, 11, 11, b -> action.run());
     }
 
@@ -829,19 +855,27 @@ public final class TeamScreen extends ScaledScreen {
             });
             ry += 22;
         }
+        String self = Minecraft.getInstance().player.getGameProfile().getName();
         for (Team.Mark m : team.marks) {
+            boolean del = edit || m.by().equals(self);
+            String key = "mark:" + m.id();
+            boolean ready = armed.equals(key) && System.currentTimeMillis() < armedUntil;
             Draw.roundBox(g, x, ry, w, 24, 5f, t.c("card.bg"), t.c("panel.border"));
             ItemStack icon = TeamClient.icon(m.icon());
             if (!icon.isEmpty()) g.renderItem(icon, x + 5, ry + 4);
             Draw.label(g, Draw.ellipsize(m.name(), w / 2f, 13, Weight.SEMIBOLD), x + 26, ry + 8, 13, Weight.SEMIBOLD, t.c("text.primary"));
             String place = TeamHud.dimensionName(m.dimension()) + " · " + m.x() + " " + m.y() + " " + m.z() + " · " + m.by();
             Draw.label(g, place, x + 26, ry + 17, 11, Weight.REGULAR, t.c("text.muted"));
-            int right = x + w - 5 - (edit ? 14 : 0);
+            String sure = tr("rysteams.confirm");
+            int right = x + w - 5 - (del ? 14 : 0) - (ready ? (int) Math.ceil(Draw.labelWidth(sure, 11, Weight.REGULAR)) + 4 : 0);
             smallButton(g, t, right, ry + 5, 14, tr("rysteams.feed.waypoint"), () -> {
                 TeamClient.waypoint = new TeamClient.Waypoint(m.name(), team.color, m.dimension(), m.x(), m.y(), m.z(), System.currentTimeMillis() + 120_000);
                 Minecraft.getInstance().setScreen(null);
             });
-            if (edit) smallDelete(g, t, x + w - 14, ry + 7, () -> byId("mark_del", m.id()));
+            if (del) {
+                if (ready) Draw.label(g, sure, x + w - 16 - Draw.labelWidth(sure, 11, Weight.REGULAR), ry + 12, 11, Weight.REGULAR, t.c("state.bad"));
+                smallDelete(g, t, x + w - 14, ry + 7, ready, () -> arm(key, ready, () -> byId("mark_del", m.id())));
+            }
             ry += 27;
         }
         if (team.marks.isEmpty()) Draw.label(g, tr("rysteams.empty.marks"), x, ry + 6, 12, Weight.REGULAR, t.c("text.dim"));
@@ -980,7 +1014,6 @@ public final class TeamScreen extends ScaledScreen {
         String days = team.autoTransferDays == 0 ? tr("rysteams.rule.never") : tr("rysteams.rule.days", team.autoTransferDays);
         String[][] rows = {
             {"join", tr("rysteams.rule.join"), tr("rysteams.join." + team.join.name().toLowerCase(java.util.Locale.ROOT))},
-            {"rewards", tr("rysteams.rule.rewards"), tr("rysteams.rewards." + team.rewards.name().toLowerCase(java.util.Locale.ROOT))},
             {"keep", tr("rysteams.rule.keep"), tr(team.keepCopyOnLeave ? "rysteams.keep.copy" : "rysteams.keep.none")},
             {"auto", tr("rysteams.rule.auto"), days},
         };
@@ -1284,13 +1317,17 @@ public final class TeamScreen extends ScaledScreen {
 
     private void joinList(GuiGraphics g, Theme t, int x, int y, int w, int bottom) {
         Draw.label(g, tr("rysteams.lobby.join"), x, y + 4, 13.5f, Weight.SEMIBOLD, t.c("text.primary"));
-        int ry = y + 13;
+        List<String> note = Draw.wrapLabel(tr("rysteams.lobby.closed"), w, 11, Weight.REGULAR, 2);
+        int top = y + 13, listBottom = (int) (bottom - 7 - note.size() * 7.5f - 3);
+        int scroll = Math.round(lobbyScroller.update(Math.max(0, lobbyContent - (listBottom - top))));
+        hits.clip(top, listBottom);
+        Draw.scissor(g, x - 1, top, x + w + 1, listBottom);
+        int ry = top - scroll;
         if (!TeamClient.restore.isEmpty()) {
             Kit.button(g, t, hits, x, ry, w, 15, Draw.ellipsize(tr("rysteams.lobby.restore", TeamClient.restore), w - 8, 12, Weight.REGULAR), false, mx, my, () -> TeamClient.action("restore"));
             ry += 19;
         }
         for (TeamClient.Info invite : TeamClient.invites) {
-            if (ry + 40 > bottom) return;
             Draw.roundBox(g, x, ry, w, 36, 4.5f, Draw.alpha(t.c("accent"), 0.1f), Draw.alpha(t.c("accent"), 0.5f));
             teamTile(g, invite.color(), invite.icon(), x + 4, ry + 4, 12, 3f);
             Draw.label(g, Draw.ellipsize(tr("rysteams.invite.title", invite.by(), invite.name()), w - 22, 11, Weight.REGULAR), x + 19, ry + 10, 11, Weight.REGULAR, t.c("text.primary"));
@@ -1302,21 +1339,27 @@ public final class TeamScreen extends ScaledScreen {
         }
         int rows = 0;
         for (TeamClient.Info info : TeamClient.teams) {
-            if (ry + 24 > bottom - 16) break;
             String join = info.join().toLowerCase(java.util.Locale.ROOT);
             boolean open = info.join().equals(Team.JoinMode.OPEN.name()), closed = info.join().equals(Team.JoinMode.INVITE.name());
             if (closed) continue;
-            String sub = plural("rysteams.count.members", info.count()) + " · " + tr("rysteams.join." + join);
-            Draw.roundBox(g, x, ry, w, 22, 4.5f, t.c("status.bg"), t.c("panel.border"));
+            String sub = plural("rysteams.count.members", info.count()) + " · " + (info.pending() ? tr("rysteams.lobby.pending") : tr("rysteams.join." + join));
+            Draw.roundBox(g, x, ry, w, 22, 4.5f, t.c("status.bg"), info.pending() ? t.c("cell.mark.border") : t.c("panel.border"));
             teamTile(g, info.color(), info.icon(), x + 4, ry + 4, 14, 3.5f);
-            int bw = smallButton(g, t, x + w - 4, ry + 4, 14, tr(open ? "rysteams.lobby.enter" : "rysteams.lobby.request"), () -> TeamClient.action(open ? "join" : "request", "team", info.id()));
+            int bw = info.pending()
+                ? smallButton(g, t, x + w - 4, ry + 4, 14, tr("rysteams.lobby.cancel"), () -> TeamClient.action("cancel_request", "team", info.id()))
+                : smallButton(g, t, x + w - 4, ry + 4, 14, tr(open ? "rysteams.lobby.enter" : "rysteams.lobby.request"), () -> TeamClient.action(open ? "join" : "request", "team", info.id()));
             Draw.label(g, Draw.ellipsize(info.name(), w - 28 - bw, 12.5f, Weight.REGULAR), x + 22, ry + 7, 12.5f, Weight.REGULAR, t.c("text.primary"));
             Draw.label(g, Draw.ellipsize(sub, w - 28 - bw, 11, Weight.REGULAR), x + 22, ry + 15.5f, 11, Weight.REGULAR, t.c("text.muted"));
             ry += 25;
             rows++;
         }
-        if (rows == 0 && TeamClient.invites.isEmpty()) Draw.label(g, tr("rysteams.lobby.none"), x, ry + 5, 11, Weight.REGULAR, t.c("text.dim"));
-        List<String> note = Draw.wrapLabel(tr("rysteams.lobby.closed"), w, 11, Weight.REGULAR, 2);
+        if (rows == 0 && TeamClient.invites.isEmpty()) {
+            Draw.label(g, tr("rysteams.lobby.none"), x, ry + 5, 11, Weight.REGULAR, t.c("text.dim"));
+            ry += 12;
+        }
+        lobbyContent = ry + scroll - top;
+        g.disableScissor();
+        hits.unclip();
         float ny = bottom - 7 - (note.size() - 1) * 7.5f - 3.5f;
         for (String line : note) {
             Draw.label(g, line, x, ny, 11, Weight.REGULAR, t.c("text.dim"));
@@ -1353,7 +1396,8 @@ public final class TeamScreen extends ScaledScreen {
 
     @Override
     protected boolean onScroll(double x, double y, double dx, double dy) {
-        if (tab == Tab.TEAM) feedScroller.by(-(float) dy * 18);
+        if (TeamClient.team == null) lobbyScroller.by(-(float) dy * 18);
+        else if (tab == Tab.TEAM) feedScroller.by(-(float) dy * 18);
         else bodyScroller.by(-(float) dy * 18);
         return true;
     }

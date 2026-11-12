@@ -56,6 +56,9 @@ public final class TeamClient {
     public static final List<Ping> PINGS = new ArrayList<>();
     @Nullable public static Waypoint waypoint;
     @Nullable public static Toast toast;
+    /** Плашка приглашения висит полминуты после прихода; потом приглашение остаётся в лобби и в ссылке чата. */
+    public static final long INVITE_SHOW_MS = 30_000;
+    public static long inviteShownUntil;
     private static final Map<String, ItemStack> ICONS = new HashMap<>();
     private static final Map<String, Component> TEXTS = new HashMap<>();
 
@@ -72,6 +75,11 @@ public final class TeamClient {
         PINGS.clear();
         waypoint = null;
         toast = null;
+        inviteShownUntil = 0;
+    }
+
+    public static boolean inviteVisible() {
+        return !invites.isEmpty() && System.currentTimeMillis() < inviteShownUntil;
     }
 
     public static void accept(CompoundTag t) {
@@ -113,7 +121,14 @@ public final class TeamClient {
             all.add(pending.contains(i.id().toString()) ? new Info(i.id(), i.name(), i.color(), i.icon(), i.count(), i.join(), i.by(), i.until(), true) : i);
         }
         teams = all;
-        invites = infos(t, "invites");
+        List<Info> fresh = infos(t, "invites");
+        for (Info i : fresh) {
+            boolean known = false;
+            // то же приглашение приходит с каждым состоянием; новое или повторное живёт дольше прежнего
+            for (Info old : invites) if (old.id().equals(i.id()) && i.until() < old.until() + 5000) known = true;
+            if (!known) inviteShownUntil = System.currentTimeMillis() + INVITE_SHOW_MS;
+        }
+        invites = fresh;
         allies = infos(t, "allies");
         allyOffers = infos(t, "allyOffers");
         Minecraft mc = Minecraft.getInstance();
