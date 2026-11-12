@@ -49,6 +49,9 @@ public final class TeamService {
     private static final double RATE_PER_S = 8, BURST = 20;
     private static final long PING_MS = 500, INVITE_AGAIN_MS = 10_000, REQUEST_AGAIN_MS = 30_000;
     private static final Set<String> PING_KINDS = Set.of("here", "danger", "resource", "help");
+    /** Метка гибели живёт полчаса и снимается раньше, когда погибший подходит к ней ближе шести блоков. */
+    private static final long DEATH_MARK_MS = 30 * 60_000L, DEATH_FEED_MS = 10_000;
+    private static final double DEATH_NEAR = 6;
 
     private record Invite(UUID team, String by, long expires) {}
 
@@ -86,6 +89,8 @@ public final class TeamService {
     private static final Map<UUID, Map<String, Long>> COOLDOWN = new HashMap<>();
     /** Повтор предложения слияния по паре «кто:кому». Не по игроку: перезаход его бы сбросил, а лента жертвы общая. */
     private static final Map<String, Long> MERGE_AGAIN = new HashMap<>();
+    /** Когда погибший снова может попасть в ленту: череда смертей не заваливает её записями. */
+    private static final Map<UUID, Long> DEATH_FEED = new HashMap<>();
     private static final Set<UUID> DIRTY = new HashSet<>();
     /** Игроки, которым нужно новое состояние, хотя их команда не менялась: приглашение, заявка, скрытие координат. */
     private static final Set<UUID> DIRTY_PLAYERS = new HashSet<>();
@@ -103,6 +108,7 @@ public final class TeamService {
         BUCKETS.clear();
         COOLDOWN.clear();
         MERGE_AGAIN.clear();
+        DEATH_FEED.clear();
         DIRTY.clear();
         DIRTY_PLAYERS.clear();
         Presence.reset();
@@ -149,8 +155,10 @@ public final class TeamService {
             team.todos.remove(team.todos.size() - 1);
             changed = true;
         }
-        while (team.marks.size() > TeamsConfig.maxMarks()) {
-            team.marks.remove(team.marks.size() - 1);
+        // временные метки гибели в лимит не входят: срезаются только постоянные, с конца
+        for (int i = team.marks.size() - 1; i >= 0 && team.permanentMarks() > TeamsConfig.maxMarks(); i--) {
+            if (team.marks.get(i).death()) continue;
+            team.marks.remove(i);
             changed = true;
         }
         return changed;
@@ -213,6 +221,7 @@ public final class TeamService {
         if (!DIRTY.isEmpty() || !DIRTY_PLAYERS.isEmpty() || dirtyLobby) safely("рассылка состояния", TeamService::flush);
         if (ticks % 40 == 0) safely("присутствие", () -> Presence.broadcast(server, store()));
         if (ticks % 200 == 0) safely("сроки", TeamService::expire);
+        if (ticks % 20 == 0) safely("метки гибели", TeamService::expireMarks);
     }
 
     /** Ошибка в данных одной команды не должна ронять тик сервера. */
@@ -246,6 +255,24 @@ public final class TeamService {
         }
         TeamStore s = store();
         if (s.archive.removeIf(a -> t - a.time() > ARCHIVE_MS)) s.setDirty();
+    }
+
+    /** Раз в секунду: снять истёкшие метки и метки гибели, к которым подошёл сам погибший. */
+    private static void expireMarks() {
+        long t = now();
+        for (Team team : store().teams.values()) {
+            if (team.marks.isEmpty()) continue;
+            boolean changed = team.marks.removeIf(m -> m.expires() > 0 && m.expires() <= t || m.death() && reached(m));
+            if (changed) touch(team);
+        }
+    }
+
+    /** Погибший жив, в том же измерении и ближе шести блоков. Пока он на экране смерти, он стоит на самой метке. */
+    private static boolean reached(Team.Mark m) {
+        if (m.owner() == null) return false;
+        ServerPlayer p = online(m.owner());
+        if (p == null || !p.isAlive() || !p.level().dimension().location().toString().equals(m.dimension())) return false;
+        return p.distanceToSqr(m.x() + 0.5, m.y() + 0.5, m.z() + 0.5) < DEATH_NEAR * DEATH_NEAR;
     }
 
     private static void autoTransfer(Team team) {
@@ -391,6 +418,7 @@ public final class TeamService {
         }
         out.put("online", sh.online);
         out.putBoolean("hide", s.hideCoords.contains(me));
+        out.putBoolean("deathNotice", !s.quietDeath.contains(me));
         out.putBoolean("serverMode", TeamsConfig.isServerMode());
         if (team == null) {
             for (TeamStore.Archived a : s.archive) {
@@ -554,6 +582,12 @@ public final class TeamService {
                 if (a.getBoolean("on")) s.hideCoords.add(me);
                 else s.hideCoords.remove(me);
                 // остальным координаты перестанет слать присутствие, состояние меняется только у самого игрока
+                s.setDirty();
+                DIRTY_PLAYERS.add(me);
+            }
+            case "death_notice" -> {
+                if (a.getBoolean("on")) s.quietDeath.remove(me);
+                else s.quietDeath.add(me);
                 s.setDirty();
                 DIRTY_PLAYERS.add(me);
             }
@@ -777,12 +811,13 @@ public final class TeamService {
         BlockPos pos = p.blockPosition();
         String dim = p.level().dimension().location().toString();
         for (Team.Mark m : team.marks) {
+            if (m.death()) continue;
             if (m.dimension().equals(dim) && Math.abs(m.x() - pos.getX()) <= 2 && Math.abs(m.y() - pos.getY()) <= 2 && Math.abs(m.z() - pos.getZ()) <= 2) {
                 toast(p, Component.translatable("rysteams.error.mark_near", m.name()), true);
                 return;
             }
         }
-        if (team.marks.size() >= TeamsConfig.maxMarks()) {
+        if (team.permanentMarks() >= TeamsConfig.maxMarks()) {
             limit(p);
             return;
         }
@@ -1005,6 +1040,8 @@ public final class TeamService {
         Presence.resend(team.members.keySet());
         team.members.remove(id);
         s.byPlayer.remove(id);
+        // метка гибели нужна команде, чтобы прийти на помощь; ушедшему она больше не поможет
+        team.marks.removeIf(m -> m.death() && id.equals(m.owner()));
         for (TeamsApi.Listener l : TeamsApi.listeners()) {
             try {
                 l.onLeft(team.id, id, keepCopy);
@@ -1339,7 +1376,7 @@ public final class TeamService {
         if (notes > 0) return Component.translatable("rysteams.error.merge_notes", notes);
         int todos = a.todos.size() + b.todos.size() - TeamsConfig.maxTodos();
         if (todos > 0) return Component.translatable("rysteams.error.merge_todos", todos);
-        int marks = a.marks.size() + b.marks.size() - TeamsConfig.maxMarks();
+        int marks = a.permanentMarks() + b.permanentMarks() - TeamsConfig.maxMarks();
         if (marks > 0) return Component.translatable("rysteams.error.merge_marks", marks);
         return null;
     }
@@ -1549,6 +1586,55 @@ public final class TeamService {
             s.setDirty();
         }
         addMember(team, p.getUUID(), p.getGameProfile().getName(), first ? Role.LEADER : Role.MEMBER, true);
+    }
+
+    // --- гибель участника ---
+
+    /**
+     * Участник погиб: запись в ленте с тревогой и метка для всей команды. Сервер решает по своим данным:
+     * отказ от сообщения и скрытие координат хранятся здесь, а не приходят от клиента.
+     */
+    public static void onDeath(ServerPlayer p) {
+        if (server == null) return;
+        TeamStore s = store();
+        UUID id = p.getUUID();
+        Team team = s.teamOf(id);
+        if (team == null || !team.members.containsKey(id) || s.quietDeath.contains(id)) return;
+        String name = p.getGameProfile().getName();
+        String dim = p.level().dimension().location().toString();
+        BlockPos pos = p.blockPosition();
+        boolean hidden = s.hideCoords.contains(id);
+        // одна метка на игрока: новая гибель заменяет прежнюю
+        boolean changed = team.marks.removeIf(m -> m.death() && id.equals(m.owner()));
+        long t = now();
+        if (!hidden) {
+            team.marks.add(new Team.Mark(UUID.randomUUID(), name, dim, pos.getX(), pos.getY(), pos.getZ(), DEATH_ICON, name,
+                Team.SOURCE_DEATH, t + DEATH_MARK_MS, id));
+            changed = true;
+        }
+        Long until = DEATH_FEED.get(id);
+        if (until == null || until <= t) {
+            if (DEATH_FEED.size() > 256) DEATH_FEED.values().removeIf(v -> v <= t);
+            DEATH_FEED.put(id, t + DEATH_FEED_MS);
+            Component text = hidden ? Component.translatable("rysteams.feed.death_hidden", name, dimText(dim))
+                : Component.translatable("rysteams.feed.death", name, dimText(dim), pos.getX(), pos.getY(), pos.getZ());
+            feed(team, SOURCE_TEAMS, text, DEATH_ICON, true,
+                hidden ? "" : "waypoint:" + dim + ":" + pos.getX() + ":" + pos.getY() + ":" + pos.getZ());
+        } else if (changed) {
+            touch(team);
+        }
+    }
+
+    private static final String DEATH_ICON = "minecraft:skeleton_skull";
+
+    /** Название измерения для ленты: у ванильных перевод, у остальных путь id, как на клиенте. */
+    private static Component dimText(String id) {
+        return switch (id) {
+            case "minecraft:overworld" -> Component.translatable("rysteams.dim.overworld");
+            case "minecraft:the_nether" -> Component.translatable("rysteams.dim.nether");
+            case "minecraft:the_end" -> Component.translatable("rysteams.dim.end");
+            default -> Component.literal(id.substring(id.indexOf(':') + 1).replace('_', ' '));
+        };
     }
 
     // --- чат команды ---

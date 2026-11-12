@@ -10,13 +10,16 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.ServerChatEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
@@ -49,6 +52,10 @@ public final class RYSTeams {
         });
         NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedOutEvent e) -> {
             if (e.getEntity() instanceof ServerPlayer p && TeamService.running()) TeamService.logout(p);
+        });
+        // последним и только неотменённая: мод воскрешения может отменить гибель. Механизмы (FakePlayer) участниками не бывают
+        NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, false, LivingDeathEvent.class, e -> {
+            if (e.getEntity() instanceof ServerPlayer p && !(p instanceof FakePlayer) && TeamService.running()) TeamService.onDeath(p);
         });
         NeoForge.EVENT_BUS.addListener((ServerChatEvent e) -> {
             if (TeamService.chat(e.getPlayer(), e.getRawText())) e.setCanceled(true);

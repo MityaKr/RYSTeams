@@ -269,6 +269,7 @@ public final class TeamsAutoTest {
             TeamClient.invites = List.of();
             works.repka.rysteams.client.ClientEntry.PING.setDown(false);
         }, 2);
+        death();
         step("leave", () -> act("disband", new CompoundTag()), 12);
         step("left", () -> {
             check("команда распущена, игрок соло", TeamClient.team == null);
@@ -346,6 +347,109 @@ public final class TeamsAutoTest {
             RYSTeams.LOG.info(failures == 0 ? "[autotest] PASS" : "[autotest] FAILED: {}", failures);
             mc().stop();
         }, 0);
+    }
+
+    @org.jetbrains.annotations.Nullable
+    private static Team.Mark deathMark(@org.jetbrains.annotations.Nullable Team team) {
+        if (team == null) return null;
+        for (Team.Mark m : team.marks) if (m.death()) return m;
+        return null;
+    }
+
+    private static Team serverTeam() {
+        return TeamService.store().teamOf(player().getUUID());
+    }
+
+    /** Отойти на сорок блоков и погибнуть по-настоящему: /kill идёт через LivingDeathEvent и в творческом режиме. */
+    private static void dieAway(String tag) {
+        step("death away " + tag, () -> server(() -> {
+            ServerPlayer p = player();
+            p.teleportTo(p.getX(), p.getY(), p.getZ() + 40);
+        }), 5);
+        step("death kill " + tag, () -> server(() -> {
+            feedBefore = serverTeam().feed.size();
+            player().kill();
+        }), 10);
+    }
+
+    private static void respawn(String tag) {
+        step("death respawn " + tag, () -> {
+            mc().player.respawn();
+            mc().setScreen(null);
+        }, 5);
+        STEPS.add(new Step("death alive " + tag, () -> mc().player != null && mc().player.isAlive(), () -> mc().setScreen(null), 30));
+    }
+
+    private static int feedBefore;
+
+    /** Гибель участника: запись с тревогой, метка вне лимита, подход снимает метку, отказ и скрытие координат. */
+    private static void death() {
+        step("death notice default", () -> check("гибель: «Сообщать о моей смерти» включено по умолчанию", TeamClient.deathNotice), 1);
+        dieAway("1");
+        step("death check", () -> server(() -> {
+            Team team = serverTeam();
+            Team.Mark m = deathMark(team);
+            long now = System.currentTimeMillis();
+            check("гибель: метка с источником rysteams:death и владельцем", m != null && player().getUUID().equals(m.owner()) && Team.SOURCE_DEATH.equals(m.source()));
+            check("гибель: метка снимется через 30 минут", m != null && m.expires() > now + 29 * 60_000L && m.expires() <= now + 30 * 60_000L);
+            check("гибель: метка не входит в лимит", team.permanentMarks() == team.marks.size() - 1);
+            Team.Mark back = deathMark(Team.load(team.save(false)));
+            check("гибель: срок и владелец переживают сохранение", back != null && m != null && back.expires() == m.expires() && m.owner().equals(back.owner()));
+            Team.Feed f = team.feed.peekFirst();
+            check("гибель: запись в ленте с тревогой и координатами", team.feed.size() == feedBefore + 1 && f != null && f.alert()
+                && f.text().contains("rysteams.feed.death\"") && f.action().startsWith("waypoint:"));
+        }), 5);
+        step("death client", () -> check("гибель: метка пришла клиенту", deathMark(TeamClient.team) != null), 1);
+        respawn("1");
+        step("death far", () -> {
+            Team.Mark m = deathMark(TeamClient.team);
+            check("гибель: вдали от метки она остаётся", m != null);
+            if (m != null) mc().player.connection.sendCommand("tp @s ~ ~ ~ facing " + m.x() + " " + m.y() + " " + m.z());
+        }, 10);
+        shot("death_mark");
+        step("death feed", () -> openTab(0), 8);
+        shot("death_feed");
+        step("death approach", () -> {
+            mc().setScreen(null);
+            server(() -> {
+                Team.Mark m = deathMark(serverTeam());
+                if (m != null) player().teleportTo(m.x() + 0.5, m.y(), m.z() + 2.5);
+            });
+        }, 45);
+        step("death reached", () -> server(() -> check("гибель: погибший подошёл ближе 6 блоков, метка снята", deathMark(serverTeam()) == null)), 5);
+        step("death reached client", () -> check("гибель: метка снята и у клиента", deathMark(TeamClient.team) == null), 1);
+        step("death quiet", () -> {
+            CompoundTag a = new CompoundTag();
+            a.putBoolean("on", false);
+            act("death_notice", a);
+        }, 8);
+        step("death quiet state", () -> check("гибель: отказ от сообщения сохранён на сервере", !TeamClient.deathNotice), 1);
+        dieAway("quiet");
+        step("death quiet check", () -> server(() -> check("гибель: при отказе нет ни метки, ни записи",
+            deathMark(serverTeam()) == null && serverTeam().feed.size() == feedBefore)), 2);
+        respawn("quiet");
+        step("death loud", () -> {
+            CompoundTag a = new CompoundTag();
+            a.putBoolean("on", true);
+            act("death_notice", a);
+            CompoundTag h = new CompoundTag();
+            h.putBoolean("on", true);
+            act("hide", h);
+        }, 200);
+        dieAway("hidden");
+        step("death hidden check", () -> server(() -> {
+            Team team = serverTeam();
+            Team.Feed f = team.feed.peekFirst();
+            check("гибель со скрытыми координатами: метки нет", deathMark(team) == null);
+            check("гибель со скрытыми координатами: в ленте только измерение", team.feed.size() == feedBefore + 1 && f != null
+                && f.text().contains("rysteams.feed.death_hidden") && f.action().isEmpty());
+        }), 2);
+        respawn("hidden");
+        step("death unhide", () -> {
+            CompoundTag h = new CompoundTag();
+            h.putBoolean("on", false);
+            act("hide", h);
+        }, 8);
     }
 
     private static void openTab(int index) {

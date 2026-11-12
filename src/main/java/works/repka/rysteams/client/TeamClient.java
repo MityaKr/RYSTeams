@@ -48,6 +48,8 @@ public final class TeamClient {
     public static List<Info> allyOffers = List.of();
     public static List<Online> online = List.of();
     public static boolean hideCoords;
+    /** «Сообщать о моей смерти»: хранится на сервере, по умолчанию включено. */
+    public static boolean deathNotice = true;
     public static boolean serverMode;
     public static String restore = "";
     @Nullable public static MergeInfo merge;
@@ -159,6 +161,7 @@ public final class TeamClient {
         if (team == null) PRESENCE.clear();
         else PRESENCE.keySet().retainAll(team.members.keySet());
         hideCoords = t.getBoolean("hide");
+        deathNotice = t.getBoolean("deathNotice");
         serverMode = t.getBoolean("serverMode");
         restore = t.getString("restore");
         undoUntil = t.contains("undoLeft") ? System.currentTimeMillis() + t.getLong("undoLeft") : 0;

@@ -78,7 +78,23 @@ public final class Team {
         }
     }
 
-    public record Mark(UUID id, String name, String dimension, int x, int y, int z, String icon, String by, String source) {
+    /** Источник метки места гибели участника: временная, одна на игрока, в лимит меток не входит. */
+    public static final String SOURCE_DEATH = "rysteams:death";
+
+    /**
+     * Метка команды.
+     * @param expires когда снимается (мс), 0 значит постоянная: в старых сохранениях поля нет
+     * @param owner чья это метка гибели, у прочих null
+     */
+    public record Mark(UUID id, String name, String dimension, int x, int y, int z, String icon, String by, String source, long expires, UUID owner) {
+        public Mark(UUID id, String name, String dimension, int x, int y, int z, String icon, String by, String source) {
+            this(id, name, dimension, x, y, z, icon, by, source, 0, null);
+        }
+
+        public boolean death() {
+            return SOURCE_DEATH.equals(source);
+        }
+
         CompoundTag save() {
             CompoundTag t = new CompoundTag();
             t.putUUID("id", id);
@@ -90,12 +106,14 @@ public final class Team {
             t.putString("icon", icon);
             t.putString("by", by);
             t.putString("src", source);
+            if (expires != 0) t.putLong("exp", expires);
+            if (owner != null) t.putUUID("owner", owner);
             return t;
         }
 
         static Mark load(CompoundTag t) {
             return new Mark(t.getUUID("id"), t.getString("name"), t.getString("dim"), t.getInt("x"), t.getInt("y"), t.getInt("z"),
-                t.getString("icon"), t.getString("by"), t.getString("src"));
+                t.getString("icon"), t.getString("by"), t.getString("src"), t.getLong("exp"), t.hasUUID("owner") ? t.getUUID("owner") : null);
         }
     }
 
@@ -203,6 +221,13 @@ public final class Team {
     public Member leader() {
         for (Member m : members.values()) if (m.role == Role.LEADER) return m;
         return members.isEmpty() ? null : members.values().iterator().next();
+    }
+
+    /** Метки, которые входят в лимит: временные метки гибели не считаются. */
+    public int permanentMarks() {
+        int n = 0;
+        for (Mark m : marks) if (!m.death()) n++;
+        return n;
     }
 
     public void addFeed(Feed entry) {

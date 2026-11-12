@@ -862,16 +862,17 @@ public final class TeamScreen extends ScaledScreen {
             boolean del = edit || m.by().equals(self);
             String key = "mark:" + m.id();
             boolean ready = armed.equals(key) && System.currentTimeMillis() < armedUntil;
-            Draw.roundBox(g, x, ry, w, 24, 5f, t.c("card.bg"), t.c("panel.border"));
+            Draw.roundBox(g, x, ry, w, 24, 5f, t.c("card.bg"), m.death() ? t.c("state.bad") : t.c("panel.border"));
             ItemStack icon = TeamClient.icon(m.icon());
             if (!icon.isEmpty()) g.renderItem(icon, x + 5, ry + 4);
-            Draw.label(g, Draw.ellipsize(m.name(), w / 2f, 13, Weight.SEMIBOLD), x + 26, ry + 8, 13, Weight.SEMIBOLD, t.c("text.primary"));
+            String title = TeamHud.markTitle(m);
+            Draw.label(g, Draw.ellipsize(title, w / 2f, 13, Weight.SEMIBOLD), x + 26, ry + 8, 13, Weight.SEMIBOLD, t.c("text.primary"));
             String place = TeamHud.dimensionName(m.dimension()) + " · " + m.x() + " " + m.y() + " " + m.z() + " · " + m.by();
             Draw.label(g, place, x + 26, ry + 17, 11, Weight.REGULAR, t.c("text.muted"));
             String sure = tr("rysteams.confirm");
             int right = x + w - 5 - (del ? 14 : 0) - (ready ? (int) Math.ceil(Draw.labelWidth(sure, 11, Weight.REGULAR)) + 4 : 0);
             smallButton(g, t, right, ry + 5, 14, tr("rysteams.feed.waypoint"), () -> {
-                TeamClient.waypoint = new TeamClient.Waypoint(m.name(), team.color, m.dimension(), m.x(), m.y(), m.z(), System.currentTimeMillis() + 120_000);
+                TeamClient.waypoint = new TeamClient.Waypoint(title, team.color, m.dimension(), m.x(), m.y(), m.z(), System.currentTimeMillis() + 120_000);
                 Minecraft.getInstance().setScreen(null);
             });
             if (del) {
@@ -1142,7 +1143,7 @@ public final class TeamScreen extends ScaledScreen {
 
     private int identity(GuiGraphics g, Theme t, Team team, int x, int y, int w) {
         boolean manage = TeamClient.can(Permission.MANAGE);
-        int cardH = manage ? 120 : 64;
+        int cardH = manage ? 133 : 77;
         Draw.roundBox(g, x, y, w, cardH, 6f, t.c("card.bg"), t.c("panel.border"));
         caps(g, t, tr("rysteams.section.identity"), x + 7, y + 10);
         int ry = y + 18;
@@ -1167,6 +1168,11 @@ public final class TeamScreen extends ScaledScreen {
             CompoundTag a = new CompoundTag();
             a.putBoolean("on", !TeamClient.hideCoords);
             TeamClient.action("hide", a);
+        });
+        ry = toggleRow(g, t, x + 7, ry, w - 14, tr("rysteams.personal.death"), TeamClient.deathNotice, () -> {
+            CompoundTag a = new CompoundTag();
+            a.putBoolean("on", !TeamClient.deathNotice);
+            TeamClient.action("death_notice", a);
         });
         ry = toggleRow(g, t, x + 7, ry, w - 14, tr("rysteams.personal.hud"), ClientEntry.SHOW_HUD.get(), () -> {
             ClientEntry.SHOW_HUD.set(!ClientEntry.SHOW_HUD.get());

@@ -45,8 +45,9 @@ public final class ModNetwork {
     }
 
     public static void register(RegisterPayloadHandlersEvent event) {
-        // версия меняется вместе с форматом пакетов: иначе разные версии мода молча расходятся. "2": requests списком, общие teams и online, cancel_request
-        PayloadRegistrar registrar = event.registrar("2");
+        // версия меняется вместе с форматом пакетов: иначе разные версии мода молча расходятся. "2": requests списком, общие teams и online, cancel_request.
+        // "3": метки со сроком и владельцем, настройка deathNotice и действие death_notice
+        PayloadRegistrar registrar = event.registrar("3");
         registrar.playToClient(ToClient.TYPE, ToClient.CODEC, ModNetwork::onClient);
         registrar.playToServer(Action.TYPE, Action.CODEC, (payload, context) -> {
             if (context.player() instanceof ServerPlayer player) TeamService.handle(player, payload.action(), payload.args());

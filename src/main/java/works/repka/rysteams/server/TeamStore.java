@@ -29,6 +29,8 @@ public final class TeamStore extends SavedData {
     public final Map<UUID, UUID> byPlayer = new HashMap<>();
     public final List<Archived> archive = new ArrayList<>();
     public final Set<UUID> hideCoords = new HashSet<>();
+    /** Кто выключил «Сообщать о моей смерти». По умолчанию сообщение включено, поэтому храним только отказ. */
+    public final Set<UUID> quietDeath = new HashSet<>();
     public boolean ftbImported;
     /** Общая команда режима server. */
     public UUID serverTeam;
@@ -49,6 +51,7 @@ public final class TeamStore extends SavedData {
             store.archive.add(new Archived(a.getCompound("team"), a.getUUID("leader"), a.getLong("time"), a.getBoolean("admin")));
         }
         for (Tag x : tag.getList("hidden", Tag.TAG_STRING)) store.hideCoords.add(UUID.fromString(x.getAsString()));
+        for (Tag x : tag.getList("quietDeath", Tag.TAG_STRING)) store.quietDeath.add(UUID.fromString(x.getAsString()));
         store.ftbImported = tag.getBoolean("ftb");
         if (tag.hasUUID("serverTeam")) store.serverTeam = tag.getUUID("serverTeam");
         return store;
@@ -73,6 +76,9 @@ public final class TeamStore extends SavedData {
         ListTag hidden = new ListTag();
         for (UUID id : hideCoords) hidden.add(StringTag.valueOf(id.toString()));
         tag.put("hidden", hidden);
+        ListTag quiet = new ListTag();
+        for (UUID id : quietDeath) quiet.add(StringTag.valueOf(id.toString()));
+        tag.put("quietDeath", quiet);
         tag.putBoolean("ftb", ftbImported);
         if (serverTeam != null) tag.putUUID("serverTeam", serverTeam);
         return tag;

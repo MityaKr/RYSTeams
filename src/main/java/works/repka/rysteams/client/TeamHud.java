@@ -241,16 +241,24 @@ public final class TeamHud {
         Draw.label(g, sub, x + 18, y + 14f, 10.5f, Weight.REGULAR, t.c("text.muted"));
     }
 
+    /** Подпись метки: у метки гибели в поле имени лежит ник погибшего, подпись собирается на клиенте. */
+    public static String markTitle(Team.Mark m) {
+        return m.death() ? tr("rysteams.mark.death", m.name()) : m.name();
+    }
+
     private static void markLabel(GuiGraphics g, Theme t, Minecraft mc, int[] s, Team.Mark m) {
         boolean pulse = "pulse".equals(m.source());
-        String title = m.name() + " · " + tr("rysteams.unit.m", dist(mc, m.x(), m.z()));
+        // метка гибели: череп и рамка цвета тревоги
+        boolean death = m.death();
+        String title = markTitle(m) + " · " + tr("rysteams.unit.m", dist(mc, m.x(), m.z()));
         float textW = Draw.labelWidth(title, 11.5f, Weight.REGULAR);
         String chip = pulse ? tr("rysteams.source.pulse") : "";
         float lead = pulse ? Draw.labelWidth(chip, 10, Weight.SEMIBOLD) + 5 + 4 : 7 + 4;
         int width = (int) Math.ceil(4.5f + lead + textW + 4.5f), height = 12;
         float x = s[0] - width / 2f, y = s[1] - 6 - height;
         int alpha = 230;
-        Draw.roundBox(g, x, y, width, height, 4f, Draw.alpha(t.c("hud.bg"), 0.9f), pulse ? t.c("src.pulse.border") : t.c("hud.border"));
+        int border = death ? t.c("state.bad") : pulse ? t.c("src.pulse.border") : t.c("hud.border");
+        Draw.roundBox(g, x, y, width, height, 4f, Draw.alpha(t.c("hud.bg"), 0.9f), border);
         if (pulse) {
             float cw = Draw.labelWidth(chip, 10, Weight.SEMIBOLD) + 5;
             Draw.round(g, x + 4.5f, y + 2.75f, cw, 6.5f, 3.25f, t.c("src.pulse.bg"));
@@ -267,7 +275,7 @@ public final class TeamHud {
             }
         }
         Draw.label(g, title, x + 4.5f + lead, y + 6, 11.5f, Weight.REGULAR, Draw.alpha(t.c("text.primary"), alpha / 255f));
-        triangle(g, s[0], (int) (y + height + 1), 7, 5, pulse ? t.c("state.bad") : t.c("text.muted"));
+        triangle(g, s[0], (int) (y + height + 1), 7, 5, pulse || death ? t.c("state.bad") : t.c("text.muted"));
     }
 
     private static int dist(Minecraft mc, int x, int z) {
