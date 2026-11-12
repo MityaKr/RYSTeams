@@ -84,6 +84,8 @@ public final class TeamService {
     private static final Map<UUID, Undo> UNDOS = new HashMap<>();
     private static final Map<UUID, Bucket> BUCKETS = new HashMap<>();
     private static final Map<UUID, Map<String, Long>> COOLDOWN = new HashMap<>();
+    /** Повтор предложения слияния по паре «кто:кому». Не по игроку: перезаход его бы сбросил, а лента жертвы общая. */
+    private static final Map<String, Long> MERGE_AGAIN = new HashMap<>();
     private static final Set<UUID> DIRTY = new HashSet<>();
     /** Игроки, которым нужно новое состояние, хотя их команда не менялась: приглашение, заявка, скрытие координат. */
     private static final Set<UUID> DIRTY_PLAYERS = new HashSet<>();
@@ -100,6 +102,7 @@ public final class TeamService {
         UNDOS.clear();
         BUCKETS.clear();
         COOLDOWN.clear();
+        MERGE_AGAIN.clear();
         DIRTY.clear();
         DIRTY_PLAYERS.clear();
         Presence.reset();
@@ -109,6 +112,7 @@ public final class TeamService {
 
     public static void stop() {
         server = null;
+        MERGE_AGAIN.clear();
     }
 
     public static TeamStore store() {
@@ -602,6 +606,7 @@ public final class TeamService {
                 }
                 if (TeamsConfig.isServerMode()) {
                     // исключённый вернулся бы при следующем входе: вместо исключения роль гостя
+                    if (m.role == Role.GUEST) return;
                     m.role = Role.GUEST;
                     feed(team, Component.translatable("rysteams.feed.role", m.name, Component.translatable("rysteams.role." + Role.GUEST.key())));
                     return;
@@ -1328,6 +1333,17 @@ public final class TeamService {
         return max > 0 && a.members.size() + b.members.size() > max;
     }
 
+    /** Доска объединённой команды не должна выйти за пределы: иначе trim молча срезал бы записи поглощённой. */
+    private static Component mergeOverflow(Team a, Team b) {
+        int notes = a.notes.size() + b.notes.size() - TeamsConfig.maxNotes();
+        if (notes > 0) return Component.translatable("rysteams.error.merge_notes", notes);
+        int todos = a.todos.size() + b.todos.size() - TeamsConfig.maxTodos();
+        if (todos > 0) return Component.translatable("rysteams.error.merge_todos", todos);
+        int marks = a.marks.size() + b.marks.size() - TeamsConfig.maxMarks();
+        if (marks > 0) return Component.translatable("rysteams.error.merge_marks", marks);
+        return null;
+    }
+
     private static void mergePropose(ServerPlayer p, Team team, Team other) {
         if (other == null || other == team) return;
         if (!team.can(p.getUUID(), Permission.MANAGE)) {
@@ -1342,6 +1358,21 @@ public final class TeamService {
             toast(p, Component.translatable("rysteams.error.merge_full", TeamsConfig.maxMembers()), true);
             return;
         }
+        Component over = mergeOverflow(team, other);
+        if (over != null) {
+            toast(p, over, true);
+            return;
+        }
+        // предложение и отмена по кругу не должны вытеснять ленту чужой команды
+        long t = now();
+        String pair = team.id + ":" + other.id;
+        Long until = MERGE_AGAIN.get(pair);
+        if (until != null && until > t) {
+            tooFast(p);
+            return;
+        }
+        if (MERGE_AGAIN.size() > 64) MERGE_AGAIN.values().removeIf(v -> v <= t);
+        MERGE_AGAIN.put(pair, t + REQUEST_AGAIN_MS);
         Merge m = new Merge(other.id, team.id, now() + MERGE_MS);
         m.intoOk = true;
         MERGES.put(team.id, m);
@@ -1369,6 +1400,12 @@ public final class TeamService {
             toast(p, Component.translatable("rysteams.error.merge_full", TeamsConfig.maxMembers()), true);
             return;
         }
+        // пока ждали второго лидера, доски могли пополниться
+        Component over = from == null || into == null ? null : mergeOverflow(from, into);
+        if (over != null) {
+            toast(p, over, true);
+            return;
+        }
         executeMerge(m);
     }
 
@@ -1388,6 +1425,7 @@ public final class TeamService {
         into.marks.addAll(from.marks);
         into.notes.addAll(from.notes);
         into.todos.addAll(from.todos);
+        // пределы проверены при предложении и подтверждении, здесь trim ничего не срезает
         trim(into);
         into.allies.addAll(from.allies);
         into.allies.remove(into.id);
@@ -1436,8 +1474,16 @@ public final class TeamService {
         ensureLeader(from);
         ensureLeader(into);
         s.teams.remove(team.id);
-        if (!into.members.isEmpty()) s.teams.put(into.id, into);
-        if (!from.members.isEmpty()) s.teams.put(from.id, from);
+        // за эти секунды название могли занять: новая команда или переименование объединённой.
+        // freeName только после remove: объединённая команда с тем же id ещё дала бы лишний суффикс
+        if (!into.members.isEmpty()) {
+            into.name = freeName(into.name, into);
+            s.teams.put(into.id, into);
+        }
+        if (!from.members.isEmpty()) {
+            from.name = freeName(from.name, from);
+            s.teams.put(from.id, from);
+        }
         for (UUID id : from.members.keySet()) s.byPlayer.put(id, from.id);
         for (UUID id : into.members.keySet()) s.byPlayer.put(id, into.id);
         // союзы других команд снова смотрят на прежние команды

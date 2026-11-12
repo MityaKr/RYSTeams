@@ -146,6 +146,8 @@ public final class ClientEntry {
         t.putUUID("team", TeamClient.invites.get(0).id());
         t.putString("answer", answer);
         TeamClient.action("invite_reply", t);
+        // плашка гаснет до ответа сервера; следующее приглашение она покажет, когда это пропадёт из состояния
         TeamClient.inviteShownUntil = 0;
+        TeamClient.inviteAnswered = true;
     }
 }

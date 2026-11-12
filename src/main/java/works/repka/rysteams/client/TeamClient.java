@@ -59,6 +59,8 @@ public final class TeamClient {
     /** Плашка приглашения висит полминуты после прихода; потом приглашение остаётся в лобби и в ссылке чата. */
     public static final long INVITE_SHOW_MS = 30_000;
     public static long inviteShownUntil;
+    /** Ответ клавишей ушёл, ждём состояние без этого приглашения. Истёкшее само по себе плашку не возвращает. */
+    public static boolean inviteAnswered;
     private static final Map<String, ItemStack> ICONS = new HashMap<>();
     private static final Map<String, Component> TEXTS = new HashMap<>();
 
@@ -76,6 +78,7 @@ public final class TeamClient {
         waypoint = null;
         toast = null;
         inviteShownUntil = 0;
+        inviteAnswered = false;
     }
 
     public static boolean inviteVisible() {
@@ -122,6 +125,18 @@ public final class TeamClient {
         }
         teams = all;
         List<Info> fresh = infos(t, "invites");
+        // на приглашение ответили, сервер его убрал: плашка переходит к следующему висящему
+        if (inviteAnswered) {
+            for (Info old : invites) {
+                boolean gone = true;
+                for (Info i : fresh) if (i.id().equals(old.id())) gone = false;
+                if (gone) {
+                    inviteAnswered = false;
+                    if (!fresh.isEmpty()) inviteShownUntil = System.currentTimeMillis() + INVITE_SHOW_MS;
+                    break;
+                }
+            }
+        }
         for (Info i : fresh) {
             boolean known = false;
             // то же приглашение приходит с каждым состоянием; новое или повторное живёт дольше прежнего

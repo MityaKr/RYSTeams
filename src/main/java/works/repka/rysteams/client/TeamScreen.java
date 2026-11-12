@@ -507,7 +507,9 @@ public final class TeamScreen extends ScaledScreen {
         int w = 110, rowH = 15;
         List<Role> roles = new ArrayList<>();
         for (Role r : new Role[] {Role.OFFICER, Role.MEMBER, Role.GUEST}) if (r != m.role) roles.add(r);
-        int h = 6 + roles.size() * rowH + 2 * rowH + 2;
+        // в режиме server сервер не исключает, а делает гостем: для этого уже есть пункт «Гость»
+        boolean canKick = !TeamClient.serverMode;
+        int h = 6 + roles.size() * rowH + (canKick ? 2 : 1) * rowH + 2;
         int x = Math.min(menuX, px + pw - w - 4), y = Math.min(menuY, py + ph - h - 4);
         g.pose().pushPose();
         g.pose().translate(0, 0, 300);
@@ -527,7 +529,7 @@ public final class TeamScreen extends ScaledScreen {
         boolean kickReady = armed.equals("kick") && System.currentTimeMillis() < armedUntil;
         menuRow(g, t, x, ry, w, rowH, transferReady ? tr("rysteams.confirm") : tr("rysteams.action.transfer"), t.c("text.body"), () -> arm("transfer", transferReady, () -> TeamClient.action("transfer", "player", m.id)));
         ry += rowH;
-        menuRow(g, t, x, ry, w, rowH, kickReady ? tr("rysteams.confirm") : tr("rysteams.action.kick"), t.c("state.bad"), () -> arm("kick", kickReady, () -> TeamClient.action("kick", "player", m.id)));
+        if (canKick) menuRow(g, t, x, ry, w, rowH, kickReady ? tr("rysteams.confirm") : tr("rysteams.action.kick"), t.c("state.bad"), () -> arm("kick", kickReady, () -> TeamClient.action("kick", "player", m.id)));
         g.pose().popPose();
     }
 
