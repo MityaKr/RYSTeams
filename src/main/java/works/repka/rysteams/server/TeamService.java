@@ -1408,7 +1408,8 @@ public final class TeamService {
             // предложение снимается целиком, как и обещает текст «предложите снова»: иначе оба флага остались бы true,
             // кнопки «Подтвердить» ни у кого нет, а новое предложение упирается в merge_busy и кулдаун
             MERGES.remove(m.into);
-            String suffix = ":" + m.into;
+            // Merge(from, into) создаётся как new Merge(цель, предлагающий): кулдаун предлагающего записан на цель, то есть на m.from
+            String suffix = ":" + m.from;
             MERGE_AGAIN.keySet().removeIf(k -> k.endsWith(suffix));
             toast(p, refusal, true);
             Team other = team.id.equals(m.from) ? into : from;
