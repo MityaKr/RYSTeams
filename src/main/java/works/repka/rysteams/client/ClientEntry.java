@@ -88,6 +88,7 @@ public final class ClientEntry {
         while (ACCEPT.consumeClick()) accept();
         while (DECLINE.consumeClick()) answer("no");
         while (FRESH.consumeClick()) answer("fresh");
+        TeamNotices.tick();
         long now = System.currentTimeMillis();
         TeamClient.PINGS.removeIf(p -> p.until() < now);
         if (TeamClient.waypoint != null && TeamClient.waypoint.until() < now) TeamClient.waypoint = null;
@@ -140,7 +141,7 @@ public final class ClientEntry {
     }
 
     /** Клавиши ответа срабатывают, только пока плашка приглашения на экране: иначе их нажимали бы случайно. */
-    private static void answer(String answer) {
+    static void answer(String answer) {
         if (!TeamClient.inviteVisible()) return;
         CompoundTag t = new CompoundTag();
         t.putUUID("team", TeamClient.invites.get(0).id());

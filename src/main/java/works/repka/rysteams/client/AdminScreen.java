@@ -97,7 +97,6 @@ public final class AdminScreen extends ScaledScreen {
         }
         g.disableScissor();
         hits.unclip();
-        TeamHud.toast(g, t, Minecraft.getInstance());
     }
 
     private void panel(GuiGraphics g, Theme t, int x, int y, int w, int h) {

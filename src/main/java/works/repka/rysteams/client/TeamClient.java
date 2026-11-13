@@ -189,8 +189,10 @@ public final class TeamClient {
         }
     }
 
+    /** Строка в общих уведомлениях семьи: справа вверху, в колонке тостов игры; ошибка красная. Новая строка заменяет прежнюю. */
     public static void toast(Component text, boolean bad) {
-        toast = new Toast(text, bad, System.currentTimeMillis() + 3500);
+        toast = new Toast(text, bad, System.currentTimeMillis() + TeamNotices.ROW_MS);
+        TeamNotices.row(text, bad);
     }
 
     public static boolean can(Permission permission) {

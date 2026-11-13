@@ -223,5 +223,9 @@
   "key.rysteams.decline": "Отклонить приглашение",
   "key.rysteams.fresh": "Принять без переноса",
   "rysteams.lobby.pending": "заявка отправлена",
-  "rysteams.lobby.cancel": "Отозвать"
+  "rysteams.lobby.cancel": "Отозвать",
+  "rysteams.notice.invite_keys": "Зовёт в «%s» · %s да, %s нет",
+  "rysteams.notice.invite": "Зовёт в команду «%s»",
+  "rysteams.notice.accept": "Принять",
+  "rysteams.notice.no": "Отказать"
 }

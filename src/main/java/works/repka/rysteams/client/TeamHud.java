@@ -45,7 +45,6 @@ public final class TeamHud {
     /** Те же условия, что в {@link #renderUi}: когда рисовать нечего, слой не создаёт графику и не сбрасывает буфер. */
     private static boolean anything(Minecraft mc) {
         if (mc.player == null || mc.level == null || mc.options.hideGui) return false;
-        if (TeamClient.toast != null || TeamClient.inviteVisible() && !(mc.screen instanceof TeamScreen)) return true;
         if (mc.screen != null) return false;
         return TeamClient.team != null || !TeamClient.PINGS.isEmpty() || TeamClient.waypoint != null || ClientEntry.pingHeld || lookedAtPlayer() != null;
     }
@@ -61,8 +60,6 @@ public final class TeamHud {
             playerCard(g, theme, mc);
             if (ClientEntry.pingHeld) pingBar(g, theme, mc);
         }
-        invite(g, theme, mc);
-        toast(g, theme, mc);
     }
 
     private static String tr(String key, Object... args) {
@@ -385,97 +382,5 @@ public final class TeamHud {
         return name.substring(0, 1).toUpperCase(java.util.Locale.ROOT) + name.substring(1);
     }
 
-    // --- приглашение и уведомления ---
-
-    private static void invite(GuiGraphics g, Theme t, Minecraft mc) {
-        if (!TeamClient.inviteVisible() || mc.screen instanceof TeamScreen) return;
-        TeamClient.Info invite = TeamClient.invites.get(0);
-        int w = 180;
-        int inner = w - 14;
-        List<String> first = Draw.wrapLabel(tr("rysteams.invite.progress"), inner - 12, 12, Weight.REGULAR, 3);
-        List<String> second = Draw.wrapLabel(tr("rysteams.invite.keep"), inner - 12, 12, Weight.REGULAR, 2);
-        int boxH = (first.size() + second.size()) * 8 + 11;
-        int h = 7 + 20 + 5 + boxH + 5 + 19 + 7;
-        int[] at = Anchors.place(Anchors.Element.INVITES, w, h, 10, 10);
-        int x = at[0], y = at[1];
-        g.pose().pushPose();
-        g.pose().translate(0, 0, 350);
-        if (t.beveled()) {
-            t.panel(g, x, y, w, h);
-        } else {
-            Draw.shadow(g, x, y, w, h, 7f, 0.5f);
-            Draw.roundBox(g, x, y, w, h, 7f, Draw.alpha(t.c("hud.bg"), 0.96f), t.c("hud.border"));
-        }
-        int tileX = x + 7, tileY = y + 7;
-        Draw.round(g, tileX, tileY, 20, 20, 5f, rgb(invite.color()));
-        ItemStack icon = TeamClient.icon(invite.icon());
-        if (!icon.isEmpty()) {
-            g.pose().pushPose();
-            g.pose().translate(tileX + 4, tileY + 4, 0);
-            g.pose().scale(0.75f, 0.75f, 1f);
-            g.renderItem(icon, 0, 0);
-            g.pose().popPose();
-        }
-        // имена полужирные, как в макете
-        String[] parts = Component.translatable("rysteams.invite.title", "\u0001", "\u0002").getString().split("[\u0001\u0002]", -1);
-        float tx = tileX + 25, tcy = y + 12f;
-        String[] names = {invite.by(), invite.name()};
-        for (int i = 0; i < parts.length; i++) {
-            Draw.label(g, parts[i], tx, tcy, 13.5f, Weight.REGULAR, t.c("text.primary"));
-            tx += Draw.labelWidth(parts[i], 13.5f, Weight.REGULAR);
-            if (i < names.length && i < parts.length - 1) {
-                Draw.label(g, names[i], tx, tcy, 13.5f, Weight.SEMIBOLD, t.c("text.primary"));
-                tx += Draw.labelWidth(names[i], 13.5f, Weight.SEMIBOLD);
-            }
-        }
-        int members = invite.count();
-        Draw.label(g, TeamScreen.plural("rysteams.count.members", members), tileX + 25, y + 21.5f, 11.5f, Weight.REGULAR, t.c("text.muted"));
-        int bx = x + 7, by = y + 7 + 20 + 5;
-        Draw.roundBox(g, bx, by, inner, boxH, 5f, t.c("status.bg"), t.c("status.border"));
-        float ly = by + 8;
-        for (String line : first) {
-            Draw.label(g, line, bx + 6, ly, 12, Weight.REGULAR, t.c("button.fg"));
-            ly += 8;
-        }
-        for (String line : second) {
-            Draw.label(g, line, bx + 6, ly, 12, Weight.REGULAR, t.c("text.muted"));
-            ly += 8;
-        }
-        int rowY = by + boxH + 5, rx = x + 7;
-        String accept = tr("rysteams.invite.accept", key(ClientEntry.ACCEPT)), fresh = tr("rysteams.invite.fresh_key", key(ClientEntry.FRESH)),
-            no = tr("rysteams.invite.no", key(ClientEntry.DECLINE));
-        int aw = (int) Math.ceil(Draw.labelWidth(accept, 13, Weight.SEMIBOLD)) + 16;
-        Draw.round(g, rx, rowY, aw, 19, 5f, t.c("accent"));
-        Draw.label(g, accept, rx + 8, rowY + 9.5f, 13, Weight.SEMIBOLD, t.c("accent.text"));
-        rx += aw + 4;
-        int fw = (int) Math.ceil(Draw.labelWidth(fresh, 12.5f, Weight.REGULAR)) + 12;
-        Draw.roundBox(g, rx, rowY, fw, 19, 5f, t.c("button.bg"), t.c("button.border"));
-        Draw.label(g, fresh, rx + 6, rowY + 9.5f, 12.5f, Weight.REGULAR, t.c("text.primary"));
-        rx += fw + 4;
-        int nw = (int) Math.ceil(Draw.labelWidth(no, 12.5f, Weight.REGULAR)) + 12;
-        Draw.roundBorder(g, rx, rowY, nw, 19, 5f, t.c("button.border"));
-        Draw.label(g, no, rx + 6, rowY + 9.5f, 12.5f, Weight.REGULAR, t.c("button.fg"));
-        long left = Math.max(0, (invite.until() - System.currentTimeMillis()) / 1000);
-        String timer = left / 60 + ":" + String.format("%02d", left % 60);
-        Draw.label(g, timer, x + w - 7 - Draw.labelWidth(timer, 11, Weight.REGULAR), rowY + 9.5f, 11, Weight.REGULAR, t.c("text.dim"));
-        g.pose().popPose();
-    }
-
-    public static void toast(GuiGraphics g, Theme t, Minecraft mc) {
-        TeamClient.Toast toast = TeamClient.toast;
-        if (toast == null) return;
-        if (toast.until() < System.currentTimeMillis()) {
-            TeamClient.toast = null;
-            return;
-        }
-        String text = toast.text().getString();
-        int w = (int) Math.ceil(Draw.labelWidth(text, 13, Weight.REGULAR)) + 16;
-        int x = (g.guiWidth() - w) / 2, y = g.guiHeight() - 76;
-        g.pose().pushPose();
-        g.pose().translate(0, 0, 400);
-        t.tooltipBox(g, x, y, w, 16);
-        Draw.label(g, text, x + 8, y + 8, 13, Weight.REGULAR, toast.bad() ? t.c("state.bad") : t.c("text.primary"));
-        g.pose().popPose();
-    }
-
+    // приглашение и строки-уведомления — общие уведомления семьи в колонке тостов игры (TeamNotices)
 }

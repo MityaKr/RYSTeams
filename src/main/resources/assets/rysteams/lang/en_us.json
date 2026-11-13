@@ -223,5 +223,9 @@
   "key.rysteams.decline": "Decline invite",
   "key.rysteams.fresh": "Accept, keep separate",
   "rysteams.lobby.pending": "request sent",
-  "rysteams.lobby.cancel": "Withdraw"
+  "rysteams.lobby.cancel": "Withdraw",
+  "rysteams.notice.invite_keys": "Invites you to “%s” · %s yes, %s no",
+  "rysteams.notice.invite": "Invites you to “%s”",
+  "rysteams.notice.accept": "Accept",
+  "rysteams.notice.no": "Decline"
 }

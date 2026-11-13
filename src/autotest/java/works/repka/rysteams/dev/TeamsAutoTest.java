@@ -81,8 +81,13 @@ public final class TeamsAutoTest {
     }
 
     private static void shot(String name) {
+        shot(name, false);
+    }
+
+    /** @param notices оставить общие уведомления семьи: они тосты игры, и очистка тостов убрала бы их с кадра */
+    private static void shot(String name, boolean notices) {
         step("clean", () -> {
-            mc().getToasts().clear();
+            if (!notices) mc().getToasts().clear();
             mc().gui.getChat().clearMessages(false);
         }, 2);
         step("shot " + name, () -> Screenshot.grab(mc().gameDirectory, String.format("teams_%02d_%s.png", shots++, name), mc().getMainRenderTarget(), m -> {}), 4);
@@ -263,12 +268,22 @@ public final class TeamsAutoTest {
                 System.currentTimeMillis() + 240_000));
             TeamClient.inviteShownUntil = System.currentTimeMillis() + TeamClient.INVITE_SHOW_MS;
             works.repka.rysteams.client.ClientEntry.PING.setDown(true);
-        }, 12);
-        shot("invite_and_ping_bar");
+        }, 24);
+        step("invite in the notices", () -> check("приглашение стоит в общих уведомлениях справа вверху",
+            works.repka.ryscore.ui.Notices.boundsForTest(works.repka.ryscore.ui.Notice.TEAMS, "invite:" + OTHER_TEAM) != null
+                && works.repka.ryscore.ui.Notices.boundsForTest(works.repka.ryscore.ui.Notice.TEAMS, "invite:" + OTHER_TEAM)[1] == 0), 2);
+        shot("invite_and_ping_bar", true);
         step("invite clear", () -> {
             TeamClient.invites = List.of();
             works.repka.rysteams.client.ClientEntry.PING.setDown(false);
         }, 2);
+        step("a line and an error in the notices", () -> {
+            TeamClient.toast(net.minecraft.network.chat.Component.literal("Lena_R вошла в команду"), false);
+            TeamClient.toast(net.minecraft.network.chat.Component.literal("Команда уже полная"), true);
+        }, 20);
+        step("one line: the new one replaced the old", () -> check("строка RYSTeams одна, новая заменила прежнюю",
+            works.repka.ryscore.ui.Notices.activeForTest().stream().filter(line -> line.startsWith("teams/row")).count() == 1), 2);
+        shot("notice_row_bad", true);
         death();
         step("leave", () -> act("disband", new CompoundTag()), 12);
         step("left", () -> {

@@ -154,7 +154,6 @@ public final class TeamScreen extends ScaledScreen {
             if (invitePopup) invitePopup(g, t);
             if (menuFor != null) memberMenu(g, t, team);
         }
-        TeamHud.toast(g, t, Minecraft.getInstance());
         if (tooltip != null) g.renderComponentTooltip(Minecraft.getInstance().font, tooltip, mouseX, mouseY);
     }
 
