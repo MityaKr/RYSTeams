@@ -153,6 +153,7 @@
   "rysteams.perm.invite": "Приглашать",
   "rysteams.perm.accept_requests": "Принимать заявки",
   "rysteams.perm.claim_rewards": "Забирать награды команды",
+  "rysteams.perm.spend_treasury": "Тратить казну команды",
   "rysteams.perm.submit_tasks": "Сдавать задачи квестов",
   "rysteams.perm.edit_board": "Редактировать доску и дела",
   "rysteams.perm.edit_marks": "Постоянные метки",

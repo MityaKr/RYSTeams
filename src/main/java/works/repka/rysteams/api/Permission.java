@@ -9,6 +9,11 @@ public enum Permission {
     INVITE(Role.LEADER, Role.OFFICER),
     ACCEPT_REQUESTS(Role.LEADER, Role.OFFICER),
     CLAIM_REWARDS(Role.LEADER, Role.OFFICER, Role.MEMBER),
+    /**
+     * Тратить казну команды в магазине квестов (RYSQuests). Класть в казну можно без права. Проверяется по UUID без открытого
+     * экрана: блоки магазина тратят казну от имени владельца блока.
+     */
+    SPEND_TREASURY(Role.LEADER, Role.OFFICER),
     SUBMIT_TASKS(Role.LEADER, Role.OFFICER, Role.MEMBER),
     EDIT_BOARD(Role.LEADER, Role.OFFICER, Role.MEMBER),
     EDIT_MARKS(Role.LEADER, Role.OFFICER),

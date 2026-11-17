@@ -153,6 +153,7 @@
   "rysteams.perm.invite": "Invite",
   "rysteams.perm.accept_requests": "Accept requests",
   "rysteams.perm.claim_rewards": "Claim team rewards",
+  "rysteams.perm.spend_treasury": "Spend the team treasury",
   "rysteams.perm.submit_tasks": "Submit quest tasks",
   "rysteams.perm.edit_board": "Edit board and tasks",
   "rysteams.perm.edit_marks": "Permanent marks",

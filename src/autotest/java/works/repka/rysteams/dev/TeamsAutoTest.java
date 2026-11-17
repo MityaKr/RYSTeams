@@ -189,6 +189,10 @@ public final class TeamsAutoTest {
                 check("гость не может менять настройки", !team.can(GOST, works.repka.rysteams.api.Permission.MANAGE));
                 check("API: права офицера", TeamsApi.get().can(LENA, "invite"));
                 check("API: участники", TeamsApi.get().members(team.id).size() == 4);
+                // казна: по умолчанию лидер и офицер; проверка по UUID работает и для тех, кого нет в игре
+                check("API: офицер тратит казну", TeamsApi.get().can(LENA, "spend_treasury"));
+                check("API: участник не тратит казну", !TeamsApi.get().can(VASYA, "spend_treasury"));
+                check("API: гость не тратит казну", !TeamsApi.get().can(GOST, "spend_treasury"));
             });
         }, 5);
         shot("team");
@@ -208,6 +212,15 @@ public final class TeamsAutoTest {
             act("set_perm", a);
         }, 8);
         step("perm check", () -> check("матрица меняется", TeamClient.team.can(Role.MEMBER, works.repka.rysteams.api.Permission.EDIT_MARKS)), 2);
+        step("treasury grant", () -> {
+            CompoundTag a = new CompoundTag();
+            a.putString("perm", "spend_treasury");
+            a.putString("role", "member");
+            act("set_perm", a);
+        }, 8);
+        step("treasury check", () -> server(() -> check("лидер выдал казну участникам", TeamsApi.get().can(VASYA, "spend_treasury")
+                && !TeamsApi.get().can(GOST, "spend_treasury"))), 2);
+        shot("settings_treasury");
         step("merge", () -> {
             CompoundTag a = new CompoundTag();
             a.putUUID("team", OTHER_TEAM);
