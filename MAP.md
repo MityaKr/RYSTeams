@@ -2,7 +2,7 @@
 
 Собрана `_shared/tools/make-map.py` 2026-11-17. Руками не править: после структурных правок пересобрать.
 
-Java: 19 файлов, 6091 строк. Переводы: `src/main/resources/assets/rysteams/lang/en_us.json`, `src/main/resources/assets/rysteams/lang/ru_ru.json`.
+Java: 19 файлов, 6109 строк. Переводы: `src/main/resources/assets/rysteams/lang/en_us.json`, `src/main/resources/assets/rysteams/lang/ru_ru.json`.
 Читать сначала: `CLAUDE.md`, `README.md`.
 
 ## Точки входа
@@ -18,7 +18,7 @@ Java: 19 файлов, 6091 строк. Переводы: `src/main/resources/as
 
 **(корень)** (2)
 - `DuoTest` 213 — Настоящий сервер и два настоящих клиента: приглашение, клавиша Y, права, присутствие, чат.
-- `TeamsAutoTest` 482 — Проверка в игре: создаёт мир, наполняет команду, снимает экраны.
+- `TeamsAutoTest` 495 — Проверка в игре: создаёт мир, наполняет команду, снимает экраны.
 
 ## `src/main/java` — пакет `works.repka.rysteams`
 
@@ -27,7 +27,7 @@ Java: 19 файлов, 6091 строк. Переводы: `src/main/resources/as
 - `TeamsConfig` 64 — Настройки сервера: world/serverconfig/rysteams-server.toml.
 
 **api** (2)
-- `Permission` 43 — Что разрешено ролям.
+- `Permission` 48 — Что разрешено ролям.
 - `Role` 18 — Роли команды от старшей к младшей.
 
 **client** (7)
