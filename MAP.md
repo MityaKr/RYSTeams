@@ -2,7 +2,7 @@
 
 Собрана `_shared/tools/make-map.py` 2026-11-18. Руками не править: после структурных правок пересобрать.
 
-Java: 22 файлов, 6751 строк. Переводы: `src/main/resources/assets/rysteams/lang/en_us.json`, `src/main/resources/assets/rysteams/lang/ru_ru.json`.
+Java: 22 файлов, 6933 строк. Переводы: `src/main/resources/assets/rysteams/lang/en_us.json`, `src/main/resources/assets/rysteams/lang/ru_ru.json`.
 Читать сначала: `CLAUDE.md`, `README.md`.
 
 ## Точки входа
@@ -47,13 +47,13 @@ Java: 22 файлов, 6751 строк. Переводы: `src/main/resources/as
 
 **server** (6)
 - `ApiEvents` 65 — События контракта ядра о смене роли, союза и имени (TeamsApi 1.11).
-- `FtbImport` 265 — Перенос команд из файлов FTB Teams (world/ftbteams/party/*.snbt).
+- `FtbImport` 340 — Перенос команд из файлов FTB Teams (world/ftbteams/party/*.snbt).
 - `Presence` 122 — Кто где.
-- `TeamService` 1742 — Вся логика команд.
+- `TeamService` 1758 — Вся логика команд.
 - `TeamStore` 92 — Все команды мира.
-- `TeamsMigration` 111 — Шаг переезда teams (порядок 10) в реестре ядра: обёртка над merge.
+- `TeamsMigration` 112 — Шаг переезда teams (порядок 10) в реестре ядра: обёртка над merge.
 
 ## `src/test/java` — пакет `works.repka.rysteams.server`
 
 **(корень)** (1)
-- `TeamsMigrationTest` 266 — Шаг teams на копии файлов FTB сервера RepYS (_shared/_saved/fixtures/ftb-2026-11-18): первый запуск, повтор, сбой записи с продолжением при следующем запуске и живой случай, где ко…
+- `TeamsMigrationTest` 356 — Шаг teams на копии файлов FTB сервера RepYS (_shared/_saved/fixtures/ftb-2026-11-18): первый запуск, повтор, сбой записи с продолжением при следующем запуске и живой случай, где ко…
