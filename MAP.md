@@ -1,8 +1,8 @@
 # Карта проекта RYSTeams
 
-Собрана `_shared/tools/make-map.py` 2026-11-17. Руками не править: после структурных правок пересобрать.
+Собрана `_shared/tools/make-map.py` 2026-11-18. Руками не править: после структурных правок пересобрать.
 
-Java: 19 файлов, 6109 строк. Переводы: `src/main/resources/assets/rysteams/lang/en_us.json`, `src/main/resources/assets/rysteams/lang/ru_ru.json`.
+Java: 20 файлов, 6278 строк. Переводы: `src/main/resources/assets/rysteams/lang/en_us.json`, `src/main/resources/assets/rysteams/lang/ru_ru.json`.
 Читать сначала: `CLAUDE.md`, `README.md`.
 
 ## Точки входа
@@ -11,7 +11,7 @@ Java: 19 файлов, 6109 строк. Переводы: `src/main/resources/as
 ## Папки
 - `docs/` — 1 файлов
 - `gradle/` — 2 файлов
-- `src/` — 24 файлов
+- `src/` — 25 файлов
 - `tools/` — 1 файлов
 
 ## `src/autotest/java` — пакет `works.repka.rysteams.dev`
@@ -23,7 +23,7 @@ Java: 19 файлов, 6109 строк. Переводы: `src/main/resources/as
 ## `src/main/java` — пакет `works.repka.rysteams`
 
 **(корень)** (2)
-- `RYSTeams` 161 — Точка входа: общая для клиента и сервера.
+- `RYSTeams` 209 — Точка входа: общая для клиента и сервера.
 - `TeamsConfig` 64 — Настройки сервера: world/serverconfig/rysteams-server.toml.
 
 **api** (2)
@@ -37,16 +37,17 @@ Java: 19 файлов, 6109 строк. Переводы: `src/main/resources/as
 - `TeamClient` 240 — Что клиент знает о командах.
 - `TeamHud` 387 — Всё, что видно поверх мира: участники, метки и пинги, приглашение, карточка игрока, панель подписей.
 - `TeamNotices` 79 — Приглашение и строки команд в общих уведомлениях семьи (RYSCore Notice, макет _audit/notify, вариант A): справа вверху, в колонке тостов игры, поверх окон.
-- `TeamScreen` 1432 — Экран команды, размеры из rysteams/design: панель 1200×728 макета, в единицах GUI 600×364.
+- `TeamScreen` 1439 — Экран команды, размеры из rysteams/design: панель 1200×728 макета, в единицах GUI 600×364.
 
 **data** (1)
-- `Team` 335 — Команда.
+- `Team` 369 — Команда.
 
 **network** (1)
 - `ModNetwork` 77 — Два канала: сервер шлёт клиенту состояние, клиент серверу действия.
 
-**server** (4)
+**server** (5)
+- `ApiEvents` 65 — События контракта ядра о смене роли, союза и имени (TeamsApi 1.11).
 - `FtbImport` 224 — Перенос команд из файлов FTB Teams.
 - `Presence` 122 — Кто где.
-- `TeamService` 1718 — Вся логика команд.
+- `TeamService` 1733 — Вся логика команд.
 - `TeamStore` 92 — Все команды мира.

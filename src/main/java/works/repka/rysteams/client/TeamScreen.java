@@ -951,7 +951,14 @@ public final class TeamScreen extends ScaledScreen {
         boolean manage = TeamClient.can(Permission.MANAGE);
         heading(g, t, tr("rysteams.section.perms"), tr("rysteams.perm.click"), x, w, y);
         int cardY = y + 12, inner = w - 14, cellW = 38, gap = 3;
-        int rows = Permission.values().length;
+        // свои права и права чужих модов (TeamsApi.registerPermission): строка мода подписана самим модом
+        record PermRow(String key, String label, boolean locked, java.util.function.Predicate<Role> on) {}
+        List<PermRow> list = new ArrayList<>();
+        for (Permission p : Permission.values()) list.add(new PermRow(p.key(), tr("rysteams.perm." + p.key()), p.locked(), role -> team.can(role, p)));
+        for (works.repka.ryscore.team.TeamsApi.ModPermission mp : works.repka.ryscore.team.TeamsApi.permissions()) {
+            list.add(new PermRow(mp.id(), mp.label().getString(), false, role -> team.modRoles(mp.id()).contains(role)));
+        }
+        int rows = list.size();
         int cardH = 7 + 13 + rows * 19 + (rows - 1) * 2 + 4 + 16 + 7;
         Draw.roundBox(g, x, cardY, w, cardH, 6f, t.c("card.bg"), t.c("panel.border"));
         int gridX = x + 7 + 3, colsRight = x + 7 + inner - 3;
@@ -971,16 +978,16 @@ public final class TeamScreen extends ScaledScreen {
         }
         int ry = cardY + 7 + 13;
         int index = 0;
-        for (Permission p : Permission.values()) {
+        for (PermRow p : list) {
             // как в макете: чередуются строки начиная с третьей
             if (index % 2 == 0 && index >= 2) Draw.round(g, x + 7, ry, inner, 19, 4f, t.c("row.alt"));
             index++;
             float cy = ry + 9.5f;
-            Draw.label(g, Draw.ellipsize(tr("rysteams.perm." + p.key()), colsRight - 4 * cellW - 3 * gap - gridX - 3, 12.5f, Weight.REGULAR), gridX, cy, 12.5f, Weight.REGULAR, t.c("text.body"));
+            Draw.label(g, Draw.ellipsize(p.label(), colsRight - 4 * cellW - 3 * gap - gridX - 3, 12.5f, Weight.REGULAR), gridX, cy, 12.5f, Weight.REGULAR, t.c("text.body"));
             for (Role role : Role.values()) {
                 int cx = colsRight - (Role.values().length - role.ordinal()) * cellW - (Role.values().length - role.ordinal() - 1) * gap + (cellW - 12) / 2;
                 int cellY = ry + 3;
-                boolean on = team.can(role, p);
+                boolean on = p.on().test(role);
                 boolean locked = p.locked() || role == Role.LEADER;
                 if (p.locked() && on) {
                     Draw.roundBox(g, cx, cellY, 12, 12, 3f, t.c("cell.mark.border"), t.c("card.border"));

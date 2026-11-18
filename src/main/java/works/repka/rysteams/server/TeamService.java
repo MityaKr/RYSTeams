@@ -114,6 +114,7 @@ public final class TeamService {
         Presence.reset();
         FtbImport.repairNames(s);
         repair(store());
+        ApiEvents.reset(store());
     }
 
     public static void stop() {
@@ -218,6 +219,8 @@ public final class TeamService {
     public static void tick() {
         if (server == null) return;
         ticks++;
+        // события контракта (роль, союз, имя) сверкой с прошлым снимком: ловит любые пути правки, в том числе слияние и автопередачу
+        if (!DIRTY.isEmpty() || ticks % 20 == 0) safely("события для модов", () -> ApiEvents.check(store()));
         if (!DIRTY.isEmpty() || !DIRTY_PLAYERS.isEmpty() || dirtyLobby) safely("рассылка состояния", TeamService::flush);
         if (ticks % 40 == 0) safely("присутствие", () -> Presence.broadcast(server, store()));
         if (ticks % 200 == 0) safely("сроки", TeamService::expire);
@@ -678,8 +681,20 @@ public final class TeamService {
                 disband(team, me, false);
             }
             case "set_perm" -> {
-                Permission perm = Permission.parse(a.getString("perm"));
+                String key = a.getString("perm");
+                Permission perm = Permission.parse(key);
                 Role role = Role.parse(a.getString("role"));
+                if (perm == null && TeamsApi.permission(key) != null) {
+                    // право чужого мода: столбец лидера закреплён
+                    if (!team.can(me, Permission.MANAGE) || role == Role.LEADER) {
+                        denied(p);
+                        return;
+                    }
+                    Set<Role> roles = team.modPermissions.computeIfAbsent(key, k -> EnumSet.copyOf(team.modRoles(k)));
+                    if (!roles.remove(role)) roles.add(role);
+                    touch(team);
+                    return;
+                }
                 if (!team.can(me, Permission.MANAGE) || perm == null || perm.locked() || role == Role.LEADER || TeamsConfig.isLocked(perm)) {
                     denied(p);
                     return;

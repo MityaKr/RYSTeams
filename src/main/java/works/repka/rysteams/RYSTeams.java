@@ -85,8 +85,56 @@ public final class RYSTeams {
         public boolean can(UUID player, String permission) {
             if (!TeamService.running()) return true;
             Team t = TeamService.store().teamOf(player);
+            if (t == null) return true;
             Permission p = Permission.parse(permission);
-            return t == null || p == null || t.can(player, p);
+            if (p != null) return t.can(player, p);
+            // право чужого мода: по таблице команды или по умолчанию из реестра ядра
+            if (TeamsApi.permission(permission) == null) return true;
+            Team.Member m = t.members.get(player);
+            return m != null && t.modRoles(permission).contains(m.role);
+        }
+
+        @Override
+        public Component name(UUID team) {
+            Team t = team(team);
+            return t == null ? TeamsApi.super.name(team) : Component.literal(t.name);
+        }
+
+        @Override
+        public int color(UUID team) {
+            Team t = team(team);
+            return t == null ? TeamsApi.super.color(team) : t.color & 0xFFFFFF;
+        }
+
+        @Override
+        public String roleOf(UUID player) {
+            if (!TeamService.running()) return LEADER;
+            Team t = TeamService.store().teamOf(player);
+            Team.Member m = t == null ? null : t.members.get(player);
+            return m == null ? LEADER : m.role.key();
+        }
+
+        @Override
+        public Collection<UUID> allies(UUID team) {
+            Team t = team(team);
+            return t == null ? List.of() : List.copyOf(t.allies);
+        }
+
+        @Override
+        public UUID leader(UUID team) {
+            Team t = team(team);
+            if (t == null) return team;
+            Team.Member m = t.leader();
+            return m == null ? null : m.id;
+        }
+
+        @Override
+        public Collection<UUID> teams() {
+            return TeamService.running() ? List.copyOf(TeamService.store().teams.keySet()) : List.of();
+        }
+
+        private static Team team(UUID id) {
+            return TeamService.running() ? TeamService.store().teams.get(id) : null;
         }
 
         @Override

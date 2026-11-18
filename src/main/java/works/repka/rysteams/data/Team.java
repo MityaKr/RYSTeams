@@ -17,6 +17,7 @@ import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import works.repka.rysteams.api.Permission;
 import works.repka.rysteams.api.Role;
+import works.repka.ryscore.team.TeamsApi;
 
 /** Команда. Один и тот же класс хранится на сервере и приходит клиенту: формат один, NBT. */
 public final class Team {
@@ -186,6 +187,8 @@ public final class Team {
     public int autoTransferDays = 14;
     public final Map<UUID, Member> members = new LinkedHashMap<>();
     public final Map<Permission, Set<Role>> permissions = new EnumMap<>(Permission.class);
+    /** Права чужих модов (TeamsApi.registerPermission), которые лидер менял; остальные берутся по умолчанию из реестра ядра. */
+    public final Map<String, Set<Role>> modPermissions = new LinkedHashMap<>();
     public final Set<UUID> allies = new HashSet<>();
     public final Map<UUID, String> requests = new LinkedHashMap<>();
     public final Deque<Feed> feed = new ArrayDeque<>();
@@ -206,6 +209,22 @@ public final class Team {
 
     public void resetPermissions() {
         for (Permission p : Permission.values()) permissions.put(p, p.defaults());
+        modPermissions.clear();
+    }
+
+    /** Кому дано право чужого мода: заданное лидером или значения мода по умолчанию. Лидеру всегда. */
+    public Set<Role> modRoles(String id) {
+        EnumSet<Role> out = EnumSet.of(Role.LEADER);
+        Set<Role> explicit = modPermissions.get(id);
+        if (explicit != null) {
+            out.addAll(explicit);
+        } else {
+            TeamsApi.ModPermission p = TeamsApi.permission(id);
+            if (p != null) {
+                for (String key : p.defaultRoles()) for (Role r : Role.values()) if (r.key().equals(key)) out.add(r);
+            }
+        }
+        return out;
     }
 
     public boolean can(Role role, Permission permission) {
@@ -257,6 +276,15 @@ public final class Team {
             perms.put(e.getKey().key(), roles);
         }
         t.put("perms", perms);
+        if (!modPermissions.isEmpty()) {
+            CompoundTag mod = new CompoundTag();
+            for (Map.Entry<String, Set<Role>> e : modPermissions.entrySet()) {
+                ListTag roles = new ListTag();
+                for (Role r : e.getValue()) roles.add(StringTag.valueOf(r.key()));
+                mod.put(e.getKey(), roles);
+            }
+            t.put("modPerms", mod);
+        }
         ListTag allyList = new ListTag();
         for (UUID ally : allies) allyList.add(StringTag.valueOf(ally.toString()));
         t.put("allies", allyList);
@@ -308,6 +336,12 @@ public final class Team {
             team.permissions.put(p, roles);
         }
         team.permissions.put(Permission.MANAGE, Permission.MANAGE.defaults());
+        CompoundTag mod = t.getCompound("modPerms");
+        for (String key : mod.getAllKeys()) {
+            Set<Role> roles = EnumSet.noneOf(Role.class);
+            for (Tag r : mod.getList(key, Tag.TAG_STRING)) roles.add(Role.parse(r.getAsString()));
+            team.modPermissions.put(key, roles);
+        }
         for (Tag x : t.getList("allies", Tag.TAG_STRING)) team.allies.add(UUID.fromString(x.getAsString()));
         if (t.getTagType("requests") == Tag.TAG_LIST) {
             for (Tag x : t.getList("requests", Tag.TAG_COMPOUND)) team.requests.put(((CompoundTag) x).getUUID("id"), ((CompoundTag) x).getString("name"));
