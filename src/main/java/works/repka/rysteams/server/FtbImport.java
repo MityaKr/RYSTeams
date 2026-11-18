@@ -31,14 +31,27 @@ import works.repka.rysteams.data.Team;
  * <p>Своё не затирается: команда с UUID, который уже есть в RYSTeams, не трогается (совпадает она с FTB или нет, видно в
  * отчёте); игрок, который уже состоит в команде RYSTeams, там и остаётся, в переносимую команду он не попадает. Хранилище
  * меняется одним шагом в конце, после того как посчитано всё.
+ *
+ * <p>Союзники. В FTB ранг {@code ally} это доверие команды одному игроку, в RYSTeams союз взаимный и между командами. Если
+ * команды доверяли игрокам друг друга, они становятся союзниками. Если доверяла только одна, вторая получает от неё
+ * предложение союза (строка в отчёте): иначе вторая команда дала бы права на свою землю, которых не давала. Союзник без
+ * команды остаётся строкой в отчёте. Союзы ставятся только там, где одна из пары перенесена сейчас: свои не трогаются.
  */
 public final class FtbImport {
     private FtbImport() {}
 
-    public record Result(int teams, int players, int skipped) {}
+    /** Итог переноса; {@code offers} предложения союза, которые надо отдать сервису команд после записи. */
+    public record Result(int teams, int players, int skipped, List<Offer> offers) {}
 
-    /** Команда FTB, как она лежит в файле: участники с ролями RYSTeams, союзники и приглашённые отброшены. */
-    record FtbTeam(UUID id, String name, int color, boolean open, Map<UUID, Role> members, String file) {}
+    /** Предложение союза от команды {@code from} команде {@code to}. */
+    public record Offer(UUID from, UUID to) {}
+
+    /** Команда FTB, как она лежит в файле: участники с ролями RYSTeams и игроки с рангом {@code ally}; приглашённые отброшены. */
+    record FtbTeam(UUID id, String name, int color, boolean open, Map<UUID, Role> members, Set<UUID> allies, String file) {
+        FtbTeam(UUID id, String name, int color, boolean open, Map<UUID, Role> members, String file) {
+            this(id, name, color, open, members, Set.of(), file);
+        }
+    }
 
     static Path partyDir(Path world) {
         return world.resolve("ftbteams").resolve("party");
@@ -69,6 +82,7 @@ public final class FtbImport {
         TeamStore store = TeamStore.get(server);
         Result r = merge(world(server), store, server, Migrations.Report.create());
         TeamService.imported();
+        TeamService.allyOffers(r.offers());
         return r;
     }
 
@@ -128,15 +142,73 @@ public final class FtbImport {
             for (UUID id : team.members.keySet()) taken.put(id, team.id);
             players += team.members.size();
         }
+        Map<UUID, Team> live = new HashMap<>(store.teams);
+        Set<UUID> fresh = new HashSet<>();
+        for (Team team : created) {
+            live.put(team.id, team);
+            fresh.add(team.id);
+        }
+        List<UUID[]> alliances = new ArrayList<>();
+        List<Offer> offers = new ArrayList<>();
+        allies(ftb, live, fresh, taken, world, server, report, alliances, offers);
         // всё посчитано: хранилище меняется одним шагом
         for (Team team : created) {
             store.teams.put(team.id, team);
             for (UUID id : team.members.keySet()) store.byPlayer.put(id, team.id);
         }
+        for (UUID[] pair : alliances) {
+            store.teams.get(pair[0]).allies.add(pair[1]);
+            store.teams.get(pair[1]).allies.add(pair[0]);
+        }
         store.ftbImported = true;
         store.setDirty();
-        report.count("teams", created.size()).count("players", players).count("existing", existing).count("conflicts", conflicts);
-        return new Result(created.size(), players, skipped + existing);
+        report.count("teams", created.size()).count("players", players).count("existing", existing).count("conflicts", conflicts)
+            .count("allies", alliances.size());
+        return new Result(created.size(), players, skipped + existing, List.copyOf(offers));
+    }
+
+    /**
+     * Союзы из рангов {@code ally}: взаимное доверие команд даёт союз, одностороннее предложение союза. Считает только пары,
+     * где хотя бы одна команда перенесена сейчас ({@code fresh}), поэтому повтор ничего не добавляет.
+     */
+    private static void allies(List<FtbTeam> ftb, Map<UUID, Team> live, Set<UUID> fresh, Map<UUID, UUID> taken, Path world,
+                               @Nullable MinecraftServer server, Migrations.Report report, List<UUID[]> alliances, List<Offer> offers) {
+        // кто кому доверял: команда, команды её союзников и первый такой игрок для отчёта
+        Map<UUID, Map<UUID, UUID>> trust = new LinkedHashMap<>();
+        for (FtbTeam f : ftb) {
+            if (!live.containsKey(f.id())) continue;
+            for (UUID player : f.allies()) {
+                UUID other = taken.get(player);
+                if (other == null) {
+                    if (fresh.contains(f.id())) {
+                        report.line(live.get(f.id()).name + ": союзник " + nameOf(world, server, player) + " без команды, союз в RYSTeams только между командами");
+                    }
+                    continue;
+                }
+                if (other.equals(f.id()) || !live.containsKey(other)) continue;
+                trust.computeIfAbsent(f.id(), k -> new LinkedHashMap<>()).putIfAbsent(other, player);
+            }
+        }
+        Set<String> seen = new HashSet<>();
+        for (Map.Entry<UUID, Map<UUID, UUID>> e : trust.entrySet()) {
+            UUID a = e.getKey();
+            for (Map.Entry<UUID, UUID> t : e.getValue().entrySet()) {
+                UUID b = t.getKey();
+                if (!fresh.contains(a) && !fresh.contains(b)) continue;
+                String key = a.compareTo(b) < 0 ? a + "|" + b : b + "|" + a;
+                if (!seen.add(key)) continue;
+                Team ta = live.get(a), tb = live.get(b);
+                if (ta.allies.contains(b)) continue;
+                if (trust.getOrDefault(b, Map.of()).containsKey(a)) {
+                    alliances.add(new UUID[] {a, b});
+                    report.line(ta.name + " и " + tb.name + ": союзники в FTB, стали союзниками");
+                } else {
+                    offers.add(new Offer(a, b));
+                    report.line(ta.name + " доверяла " + nameOf(world, server, t.getValue()) + " из " + tb.name
+                        + ", а " + tb.name + " ей нет: союз в RYSTeams взаимный, " + tb.name + " получила предложение союза");
+                }
+            }
+        }
     }
 
     private static boolean nameTaken(TeamStore store, Map<UUID, String> newNames, String name) {
@@ -207,19 +279,22 @@ public final class FtbImport {
         boolean open = Snbt.bool(props, "ftbteams:free_to_join", false);
         if (!(root.get("ranks") instanceof JsonObject ranks)) return null;
         Map<UUID, Role> members = new LinkedHashMap<>();
+        Set<UUID> allies = new java.util.LinkedHashSet<>();
         for (Map.Entry<String, JsonElement> e : ranks.entrySet()) {
             String rank = e.getValue().isJsonPrimitive() ? e.getValue().getAsString() : "";
+            UUID player = Snbt.uuid(new com.google.gson.JsonPrimitive(e.getKey()));
+            if (player == null) continue;
             Role role = switch (rank) {
                 case "owner" -> Role.LEADER;
                 case "officer" -> Role.OFFICER;
                 case "member" -> Role.MEMBER;
-                // союзники и приглашённые в FTB это отдельные отношения, а не участники
+                // союзник в FTB не участник, а доверие команды игроку; приглашённые и враги не переносятся
                 default -> null;
             };
-            UUID player = Snbt.uuid(new com.google.gson.JsonPrimitive(e.getKey()));
-            if (role != null && player != null) members.put(player, role);
+            if (role != null) members.put(player, role);
+            else if (rank.equals("ally")) allies.add(player);
         }
-        return new FtbTeam(id, name, color, open, members, file);
+        return new FtbTeam(id, name, color, open, members, Set.copyOf(allies), file);
     }
 
     /** Ник из файла игрока FTB Teams, затем из кэша профилей сервера. Если нигде нет, начало UUID. */

@@ -74,9 +74,10 @@ public final class TeamsMigration implements Migrations.Step {
         Migrations.Report report = Migrations.Report.create();
         if (store.ftbImported) report.line("команды уже переносили командой: только сверка");
         if (c.isLoaded("ftbteams")) report.line("FTB Teams ещё стоит: команды, созданные в нём после переезда, не переносятся");
-        FtbImport.merge(world, store, c.server(), report);
+        FtbImport.Result result = FtbImport.merge(world, store, c.server(), report);
         storage.save(c, store);
         TeamService.imported();
+        TeamService.allyOffers(result.offers());
         return report;
     }
 

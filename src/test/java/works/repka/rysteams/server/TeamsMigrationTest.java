@@ -272,6 +272,70 @@ class TeamsMigrationTest {
             + "  }\n  properties: {\n    \"ftbteams:display_name\": \"" + name + "\"\n  }\n}\n", StandardCharsets.UTF_8);
     }
 
+    /** Добавляет игроку ранг в файл VENIK из копии сервера. */
+    private void venikRank(UUID player, String rank) throws IOException {
+        Path f = world.resolve("ftbteams/party/" + VENIK + ".snbt");
+        String text = Files.readString(f, StandardCharsets.UTF_8);
+        String anchor = KIFA + ": \"officer\"";
+        assertTrue(text.contains(anchor));
+        Files.writeString(f, text.replace(anchor, anchor + "\n    " + player + ": \"" + rank + "\""), StandardCharsets.UTF_8);
+    }
+
+    @Test
+    void mutualAlliesBecomeAllies() throws IOException {
+        UUID bobTeam = UUID.randomUUID(), bob = UUID.randomUUID();
+        party(bobTeam, "Bobs", Map.of(bob, "owner", KIFA, "ally"));
+        venikRank(bob, "ally");
+        Migrations.Outcome o = start();
+        assertEquals(Migrations.Status.DONE, o.status(), o.toString());
+        assertTrue(current.teams.get(VENIK).allies.contains(bobTeam), o.toString());
+        assertTrue(current.teams.get(bobTeam).allies.contains(VENIK));
+        assertFalse(current.teams.get(VENIK).members.containsKey(bob), "союзник не участник");
+        assertEquals(1L, o.report().counts().get("allies"));
+        // повтор (отметка потеряна) союз не дублирует и ничего не меняет
+        Map<UUID, CompoundTag> before = snapshot(current);
+        Files.writeString(world.resolve("rys/migrate.json"), "{ не json", StandardCharsets.UTF_8);
+        restart();
+        Migrations.Outcome again = start();
+        assertEquals(0L, again.report().counts().get("allies"));
+        assertEquals(before, snapshot(current));
+    }
+
+    @Test
+    void oneSidedTrustBecomesAnOfferNotAnAlliance() throws IOException {
+        UUID bobTeam = UUID.randomUUID(), bob = UUID.randomUUID();
+        party(bobTeam, "Bobs", Map.of(bob, "owner", MITYA, "ally"));
+        TeamStore store = new TeamStore();
+        FtbImport.Result r = FtbImport.merge(world, store, null, Migrations.Report.create());
+        assertTrue(store.teams.get(VENIK).allies.isEmpty());
+        assertTrue(store.teams.get(bobTeam).allies.isEmpty());
+        assertEquals(java.util.List.of(new FtbImport.Offer(bobTeam, VENIK)), r.offers());
+        Migrations.Outcome o = start();
+        assertTrue(o.report().lines().stream().anyMatch(l -> l.contains("Bobs доверяла") && l.contains("предложение союза")), o.toString());
+    }
+
+    @Test
+    void allyWithoutTeamIsALine() throws IOException {
+        UUID loner = UUID.randomUUID();
+        venikRank(loner, "ally");
+        Migrations.Outcome o = start();
+        assertEquals(Migrations.Status.DONE, o.status());
+        assertTrue(current.teams.get(VENIK).allies.isEmpty());
+        assertTrue(o.report().lines().stream().anyMatch(l -> l.contains("без команды")), o.toString());
+    }
+
+    @Test
+    void allyOfOwnTeamIsKeptWhenNewTeamArrives() throws IOException {
+        // VENIK уже в RYSTeams, команда Bobs приходит сейчас, доверие взаимное: союз ставится, состав VENIK не трогается
+        team(current, VENIK, "VENIK", Map.of(MITYA, Role.LEADER, KIFA, Role.OFFICER));
+        UUID bobTeam = UUID.randomUUID(), bob = UUID.randomUUID();
+        party(bobTeam, "Bobs", Map.of(bob, "owner", MITYA, "ally"));
+        venikRank(bob, "ally");
+        Migrations.Outcome o = start();
+        assertTrue(current.teams.get(VENIK).allies.contains(bobTeam), o.toString());
+        assertEquals(2, current.teams.get(VENIK).members.size());
+    }
+
     /** Копия мира тестового сервера RepYS: команды там перенесены руками 17.11, шаг должен только поставить отметку. */
     @Test
     void liveCopyOfRepysServer() throws IOException {

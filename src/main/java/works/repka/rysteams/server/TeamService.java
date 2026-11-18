@@ -1738,4 +1738,20 @@ public final class TeamService {
         store().setDirty();
         dirtyLobby = true;
     }
+
+    /**
+     * Предложения союза из переезда с FTB (одностороннее доверие команды игроку другой команды): лидер второй команды
+     * принимает их в окне команды, как обычные. Живут до перезапуска, как и все предложения союза; строка в ленте остаётся.
+     */
+    public static void allyOffers(List<FtbImport.Offer> offers) {
+        if (!running() || offers.isEmpty()) return;
+        TeamStore s = store();
+        for (FtbImport.Offer o : offers) {
+            Team from = s.teams.get(o.from()), to = s.teams.get(o.to());
+            if (from == null || to == null || from.allies.contains(to.id)) continue;
+            if (ALLY_OFFERS.computeIfAbsent(to.id, k -> new LinkedHashSet<>()).add(from.id)) {
+                feed(to, Component.translatable("rysteams.feed.ally_offer", from.name));
+            }
+        }
+    }
 }
