@@ -21,6 +21,7 @@
 * `client.TeamScreen`: экран рисуется целиком каждый кадр и записывает кнопки, клик ищет запись под курсором.
 * Контракт для других модов лежит в коре: `works.repka.ryscore.team.TeamsApi`. Прямых вызовов между модами семьи нет.
 * Права чужих модов (`TeamsApi.registerPermission`, кор 1.11) хранятся в `Team.modPermissions` только после правки лидером, иначе берутся значения мода из реестра ядра (`Team.modRoles`); строки стоят в таблице прав на экране после своих, столбец лидера закреплён.
+* Переезд с FTB Teams только шагом `teams` ядра (`server.TeamsMigration` поверх `server.FtbImport.merge`, `docs/decisions.md` ADR-1): своё не затирается, файлы FTB читает `migrate.Snbt` ядра.
 * События `onRoleChanged`, `onAlliesChanged`, `onRenamed` считает `server.ApiEvents` сверкой со снимком команд (при рассылке и раз в секунду), а не вызовами в каждом месте правки.
 
 ## Принятые отступления от концепта
@@ -35,6 +36,8 @@
 
 ```bash
 gradlew runAutotest
+gradlew test                              # JUnit, в том числе шаг teams на fixtures
+gradlew runAutotest -Pautotest=migrate    # шаг teams в игре на fixtures
 ```
 
 Настоящий сервер и два клиента (сценарий `DuoTest`, вердикты в `run-duo/*/logs/latest.log`):

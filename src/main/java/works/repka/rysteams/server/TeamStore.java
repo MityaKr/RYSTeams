@@ -20,7 +20,7 @@ import works.repka.rysteams.data.Team;
 /** Все команды мира. Файл {@code data/rysteams.dat}, формат версионирован полем {@code v}. */
 public final class TeamStore extends SavedData {
     private static final int VERSION = 1;
-    private static final String NAME = "rysteams";
+    static final String NAME = "rysteams";
 
     /** Распущенная команда: лидер может вернуть её в течение недели. Распущенную администратором возвращает только администратор. */
     public record Archived(CompoundTag team, UUID leader, long time, boolean byAdmin) {}
@@ -39,7 +39,7 @@ public final class TeamStore extends SavedData {
         return server.overworld().getDataStorage().computeIfAbsent(new SavedData.Factory<>(TeamStore::new, TeamStore::load), NAME);
     }
 
-    private static TeamStore load(CompoundTag tag, HolderLookup.Provider registries) {
+    static TeamStore load(CompoundTag tag, HolderLookup.Provider registries) {
         TeamStore store = new TeamStore();
         for (Tag x : tag.getList("teams", Tag.TAG_COMPOUND)) {
             Team team = Team.load((CompoundTag) x);

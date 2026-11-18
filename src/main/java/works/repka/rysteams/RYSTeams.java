@@ -26,12 +26,13 @@ import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import works.repka.ryscore.migrate.Migrations;
 import works.repka.ryscore.team.TeamsApi;
 import works.repka.rysteams.api.Permission;
 import works.repka.rysteams.data.Team;
 import works.repka.rysteams.network.ModNetwork;
-import works.repka.rysteams.server.FtbImport;
 import works.repka.rysteams.server.TeamService;
+import works.repka.rysteams.server.TeamsMigration;
 import works.repka.rysteams.server.TeamStore;
 
 /** Точка входа: общая для клиента и сервера. */
@@ -62,6 +63,7 @@ public final class RYSTeams {
         });
         NeoForge.EVENT_BUS.addListener((RegisterCommandsEvent e) -> registerCommands(e.getDispatcher()));
         TeamsApi.provide(new Api());
+        Migrations.register(new TeamsMigration());
         LOG.info("RYSTeams загружен");
     }
 
@@ -195,14 +197,10 @@ public final class RYSTeams {
                 return store.teams.size();
             }))
             .then(Commands.literal("import").requires(s -> s.hasPermission(3)).then(Commands.literal("ftb").executes(c -> {
-                try {
-                    FtbImport.Result r = FtbImport.run(c.getSource().getServer());
-                    c.getSource().sendSuccess(() -> Component.translatable("rysteams.admin.imported", r.teams(), r.players(), r.skipped()), true);
-                    return r.teams();
-                } catch (java.io.IOException e) {
-                    c.getSource().sendFailure(Component.literal(e.toString()));
-                    return 0;
-                }
+                // тот же шаг, что идёт сам по флагу сборки: копия, отметка и отчёт ядра, своё не затирается
+                Migrations.Outcome o = Migrations.runManual(TeamsMigration.ID, c.getSource().getServer());
+                c.getSource().sendSuccess(() -> TeamService.importMessage(o), true);
+                return o.ran() ? 1 : 0;
             }))));
     }
 }

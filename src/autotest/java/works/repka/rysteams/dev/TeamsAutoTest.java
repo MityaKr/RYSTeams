@@ -150,6 +150,10 @@ public final class TeamsAutoTest {
             check("состояние пришло, игрок соло", TeamClient.team == null);
             check("соло: команда равна игроку", TeamsApi.get().teamOf(player().getUUID()).equals(player().getUUID()));
         }, 40));
+        if ("migrate".equals(System.getProperty("rysteams.autotest"))) {
+            buildMigrate();
+            return;
+        }
         step("hand", () -> {
             mc().player.connection.sendCommand("give @s minecraft:compass");
             mc().player.connection.sendCommand("give @s minecraft:emerald");
@@ -372,6 +376,50 @@ public final class TeamsAutoTest {
             mc().resizeDisplay();
         }, 4);
         step("finish", () -> {
+            RYSTeams.LOG.info(failures == 0 ? "[autotest] PASS" : "[autotest] FAILED: {}", failures);
+            mc().stop();
+        }, 0);
+    }
+
+    /**
+     * Сценарий {@code migrate}: файлы FTB сервера RepYS ({@code rysteams.autotest.fixtures}) кладутся в новый мир, шаг
+     * {@code teams} идёт командой ядра дважды. Первый раз переносит VENIK с двумя игроками, второй ничего не меняет.
+     */
+    private static void buildMigrate() {
+        UUID venik = UUID.fromString("0c383da8-5fb5-41ef-96be-7cae45e6e640");
+        UUID mitya = UUID.fromString("216ea99a-d6eb-45be-8a5b-3da7852588a5");
+        UUID kifa = UUID.fromString("633d6f3f-f318-4004-a3fb-b5131b22c28b");
+        step("migrate first", () -> server(() -> {
+            var server = mc().getSingleplayerServer();
+            var world = server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).normalize();
+            var from = java.nio.file.Path.of(System.getProperty("rysteams.autotest.fixtures", "")).resolve("world").resolve("ftbteams");
+            check("файлы FTB есть: " + from, java.nio.file.Files.isDirectory(from));
+            try (var walk = java.nio.file.Files.walk(from)) {
+                for (var p : (Iterable<java.nio.file.Path>) walk::iterator) {
+                    var t = world.resolve("ftbteams").resolve(from.relativize(p).toString());
+                    if (java.nio.file.Files.isDirectory(p)) java.nio.file.Files.createDirectories(t);
+                    else java.nio.file.Files.copy(p, t, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                }
+            } catch (java.io.IOException e) {
+                throw new RuntimeException(e);
+            }
+            var o = works.repka.ryscore.migrate.Migrations.runManual(works.repka.rysteams.server.TeamsMigration.ID, server);
+            Team team = TeamService.store().teams.get(venik);
+            check("переезд: шаг прошёл (" + o + ")", o.status() == works.repka.ryscore.migrate.Migrations.Status.DONE);
+            check("переезд: VENIK с двумя игроками и ролями", team != null && team.members.size() == 2
+                && team.members.get(mitya).role == Role.LEADER && team.members.get(kifa).role == Role.OFFICER);
+            check("переезд: отметка ядра", java.nio.file.Files.isRegularFile(world.resolve("rys/migrate.json")));
+        }), 10);
+        step("migrate again", () -> server(() -> {
+            var server = mc().getSingleplayerServer();
+            CompoundTag before = TeamService.store().teams.get(venik).save(false);
+            var o = works.repka.ryscore.migrate.Migrations.runManual(works.repka.rysteams.server.TeamsMigration.ID, server);
+            check("повтор: уже сделан (" + o + ")", o.status() == works.repka.ryscore.migrate.Migrations.Status.ALREADY_DONE);
+            check("повтор: команда не изменилась", before.equals(TeamService.store().teams.get(venik).save(false)));
+        }), 10);
+        step("lobby", () -> mc().setScreen(new TeamScreen()), 10);
+        shot("migrated");
+        step("done", () -> {
             RYSTeams.LOG.info(failures == 0 ? "[autotest] PASS" : "[autotest] FAILED: {}", failures);
             mc().stop();
         }, 0);

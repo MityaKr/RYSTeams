@@ -2,28 +2,28 @@
 
 Собрана `_shared/tools/make-map.py` 2026-11-18. Руками не править: после структурных правок пересобрать.
 
-Java: 20 файлов, 6278 строк. Переводы: `src/main/resources/assets/rysteams/lang/en_us.json`, `src/main/resources/assets/rysteams/lang/ru_ru.json`.
+Java: 22 файлов, 6751 строк. Переводы: `src/main/resources/assets/rysteams/lang/en_us.json`, `src/main/resources/assets/rysteams/lang/ru_ru.json`.
 Читать сначала: `CLAUDE.md`, `README.md`.
 
 ## Точки входа
 - `@Mod`: `works.repka.rysteams.RYSTeams` (`src/main/java`)
 
 ## Папки
-- `docs/` — 1 файлов
+- `docs/` — 2 файлов
 - `gradle/` — 2 файлов
-- `src/` — 25 файлов
+- `src/` — 27 файлов
 - `tools/` — 1 файлов
 
 ## `src/autotest/java` — пакет `works.repka.rysteams.dev`
 
 **(корень)** (2)
 - `DuoTest` 213 — Настоящий сервер и два настоящих клиента: приглашение, клавиша Y, права, присутствие, чат.
-- `TeamsAutoTest` 495 — Проверка в игре: создаёт мир, наполняет команду, снимает экраны.
+- `TeamsAutoTest` 543 — Проверка в игре: создаёт мир, наполняет команду, снимает экраны.
 
 ## `src/main/java` — пакет `works.repka.rysteams`
 
 **(корень)** (2)
-- `RYSTeams` 209 — Точка входа: общая для клиента и сервера.
+- `RYSTeams` 207 — Точка входа: общая для клиента и сервера.
 - `TeamsConfig` 64 — Настройки сервера: world/serverconfig/rysteams-server.toml.
 
 **api** (2)
@@ -45,9 +45,15 @@ Java: 20 файлов, 6278 строк. Переводы: `src/main/resources/as
 **network** (1)
 - `ModNetwork` 77 — Два канала: сервер шлёт клиенту состояние, клиент серверу действия.
 
-**server** (5)
+**server** (6)
 - `ApiEvents` 65 — События контракта ядра о смене роли, союза и имени (TeamsApi 1.11).
-- `FtbImport` 224 — Перенос команд из файлов FTB Teams.
+- `FtbImport` 265 — Перенос команд из файлов FTB Teams (world/ftbteams/party/*.snbt).
 - `Presence` 122 — Кто где.
-- `TeamService` 1733 — Вся логика команд.
+- `TeamService` 1742 — Вся логика команд.
 - `TeamStore` 92 — Все команды мира.
+- `TeamsMigration` 111 — Шаг переезда teams (порядок 10) в реестре ядра: обёртка над merge.
+
+## `src/test/java` — пакет `works.repka.rysteams.server`
+
+**(корень)** (1)
+- `TeamsMigrationTest` 266 — Шаг teams на копии файлов FTB сервера RepYS (_shared/_saved/fixtures/ftb-2026-11-18): первый запуск, повтор, сбой записи с продолжением при следующем запуске и живой случай, где ко…

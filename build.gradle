@@ -73,8 +73,14 @@ neoForge {
             client()
             gameDirectory = project.file('run')
             systemProperty 'rysteams.autotest', project.findProperty('autotest') ?: 'ui'
+            systemProperty 'rysteams.autotest.fixtures', project.findProperty('fixtures') ?: project.file('../../_shared/_saved/fixtures/ftb-2026-11-18').absolutePath
             programArguments.addAll '--width', '1280', '--height', '800'
         }
+    }
+
+    unitTest {
+        enable()
+        testedMod = mods."${mod_id}"
     }
 }
 
@@ -87,11 +93,21 @@ dependencies {
         version { prefer ryscore_version }
         transitive = false
     }
+
+    testImplementation "org.junit.jupiter:junit-jupiter:${junit_version}"
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.release = 21
+}
+
+test {
+    useJUnitPlatform()
+    // Копия файлов FTB сервера RepYS (18.11) и копия мира тестового сервера: проверки без них пропускаются.
+    systemProperty 'rysteams.fixtures', project.findProperty('fixtures') ?: project.file('../../_shared/_saved/fixtures/ftb-2026-11-18').absolutePath
+    systemProperty 'rysteams.liveWorld', project.findProperty('liveWorld') ?: 'C:/Projects/RepYS-ServerTest/world'
 }
 
 processResources {

@@ -898,11 +898,16 @@ public final class TeamService {
 
     /** Свободное название: при совпадении дописывается « (2)», « (3)» и так далее. */
     static String freeName(String name, Team except) {
-        if (!nameTaken(name, except)) return name;
+        return freeNameBy(name, n -> nameTaken(n, except));
+    }
+
+    /** То же с проверкой «занято» снаружи: перенос с FTB считает и команды, которые ещё не легли в хранилище. */
+    static String freeNameBy(String name, java.util.function.Predicate<String> taken) {
+        if (!taken.test(name)) return name;
         for (int i = 2; ; i++) {
             String suffix = " (" + i + ")";
             String base = name.length() + suffix.length() > NAME_MAX ? name.substring(0, Math.max(1, NAME_MAX - suffix.length())).strip() : name;
-            if (!nameTaken(base + suffix, except)) return base + suffix;
+            if (!taken.test(base + suffix)) return base + suffix;
         }
     }
 
@@ -1205,12 +1210,8 @@ public final class TeamService {
                     denied(p);
                     return;
                 }
-                try {
-                    FtbImport.Result r = FtbImport.run(server);
-                    toast(p, Component.translatable("rysteams.admin.imported", r.teams(), r.players(), r.skipped()), false);
-                } catch (java.io.IOException e) {
-                    toast(p, Component.literal(e.toString()), true);
-                }
+                works.repka.ryscore.migrate.Migrations.Outcome o = works.repka.ryscore.migrate.Migrations.runManual(TeamsMigration.ID, server);
+                toast(p, importMessage(o), o.status() == works.repka.ryscore.migrate.Migrations.Status.FAILED);
             }
             default -> {
                 return;
@@ -1725,7 +1726,15 @@ public final class TeamService {
     }
 
     /** Импортированные команды появляются сразу у всех. */
+    /** Ответ администратору на перенос с FTB: счётчики шага или строка ядра, почему он не шёл. */
+    public static Component importMessage(works.repka.ryscore.migrate.Migrations.Outcome o) {
+        var r = o.report();
+        if (!o.ran() || r == null) return Component.literal(o.toString());
+        return Component.translatable("rysteams.admin.imported", r.counts().getOrDefault("teams", 0L), r.counts().getOrDefault("players", 0L), r.skipped().size());
+    }
+
     public static void imported() {
+        if (!running()) return;
         store().setDirty();
         dirtyLobby = true;
     }
