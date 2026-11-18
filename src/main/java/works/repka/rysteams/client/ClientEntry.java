@@ -20,6 +20,7 @@ import net.neoforged.neoforge.client.settings.KeyConflictContext;
 import net.neoforged.neoforge.common.ModConfigSpec;
 import net.neoforged.neoforge.common.NeoForge;
 import org.lwjgl.glfw.GLFW;
+import works.repka.ryscore.action.Answers;
 import works.repka.rysteams.RYSTeams;
 import works.repka.rysteams.api.Permission;
 
@@ -30,9 +31,10 @@ public final class ClientEntry {
     public static final KeyMapping OPEN = new KeyMapping("key.rysteams.open", KeyConflictContext.IN_GAME, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_G, CATEGORY);
     /** Средняя кнопка занята выбором блока, поэтому пинг на V. */
     public static final KeyMapping PING = new KeyMapping("key.rysteams.ping", KeyConflictContext.IN_GAME, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_V, CATEGORY);
-    /** Ответ на приглашение: работает, пока видна плашка приглашения. С зажатым Alt «принять» зовёт игрока под прицелом. */
-    public static final KeyMapping ACCEPT = new KeyMapping("key.rysteams.accept", KeyConflictContext.IN_GAME, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_Y, CATEGORY);
-    public static final KeyMapping DECLINE = new KeyMapping("key.rysteams.decline", KeyConflictContext.IN_GAME, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_N, CATEGORY);
+    /*
+     * «Принять» и «Отказать» живут в ядре (RYSCore 1.14, Answers.ACCEPT и DECLINE, умолчания Y и N): они отвечают на приглашение
+     * кнопками уведомления, а когда отвечать не на что, «Принять» зовёт в команду игрока под прицелом (запасной обработчик).
+     */
     public static final KeyMapping FRESH = new KeyMapping("key.rysteams.fresh", KeyConflictContext.IN_GAME, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_U, CATEGORY);
     public static final String[] PING_KINDS = {"here", "danger", "resource", "help", "mark"};
 
@@ -60,8 +62,6 @@ public final class ClientEntry {
         modBus.addListener((RegisterKeyMappingsEvent e) -> {
             e.register(OPEN);
             e.register(PING);
-            e.register(ACCEPT);
-            e.register(DECLINE);
             e.register(FRESH);
         });
         modBus.addListener((RegisterGuiLayersEvent e) ->
@@ -79,14 +79,13 @@ public final class ClientEntry {
                 return 1;
             })));
         NeoForge.EVENT_BUS.addListener(ClientEntry::onScroll);
+        Answers.onAccept(ClientEntry::inviteLooked);
     }
 
     private static void tick() {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return;
         while (OPEN.consumeClick()) mc.setScreen(new TeamScreen());
-        while (ACCEPT.consumeClick()) accept();
-        while (DECLINE.consumeClick()) answer("no");
         while (FRESH.consumeClick()) answer("fresh");
         TeamNotices.tick();
         long now = System.currentTimeMillis();
@@ -130,14 +129,16 @@ public final class ClientEntry {
         e.setCanceled(true);
     }
 
-    /** «Принять»: с зажатым Alt зовёт игрока под прицелом, иначе отвечает на приглашение. */
-    private static void accept() {
+    /**
+     * «Принять» ядра, когда нет уведомления с ответом: зовёт в команду игрока под прицелом.
+     * @return съедено ли нажатие
+     */
+    private static boolean inviteLooked() {
+        if (Minecraft.getInstance().player == null) return false;
         Player target = TeamHud.lookedAtPlayer();
-        if (target != null) {
-            if (TeamClient.can(Permission.INVITE)) TeamClient.action("invite", "player", target.getUUID());
-            return;
-        }
-        answer("accept");
+        if (target == null) return false;
+        if (TeamClient.can(Permission.INVITE)) TeamClient.action("invite", "player", target.getUUID());
+        return true;
     }
 
     /** Клавиши ответа срабатывают, только пока плашка приглашения на экране: иначе их нажимали бы случайно. */

@@ -220,8 +220,6 @@
   "rysteams.toast.kicked": "Тебя исключили из команды %s, решение: %s",
   "rysteams.toast.disbanded": "Команда %s распущена",
   "rysteams.toast.disbanded_restore": "Команда %s распущена. Вернуть её можно в течение недели",
-  "key.rysteams.accept": "Принять приглашение",
-  "key.rysteams.decline": "Отклонить приглашение",
   "key.rysteams.fresh": "Принять без переноса",
   "rysteams.lobby.pending": "заявка отправлена",
   "rysteams.lobby.cancel": "Отозвать",

@@ -220,8 +220,6 @@
   "rysteams.toast.kicked": "You were removed from %s by %s",
   "rysteams.toast.disbanded": "Team %s was disbanded",
   "rysteams.toast.disbanded_restore": "Team %s was disbanded. You can restore it within a week",
-  "key.rysteams.accept": "Accept invite",
-  "key.rysteams.decline": "Decline invite",
   "key.rysteams.fresh": "Accept, keep separate",
   "rysteams.lobby.pending": "request sent",
   "rysteams.lobby.cancel": "Withdraw",

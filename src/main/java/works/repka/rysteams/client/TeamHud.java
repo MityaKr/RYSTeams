@@ -327,7 +327,7 @@ public final class TeamHud {
         String title = target.getGameProfile().getName() + (free ? " · " + tr("rysteams.card.free") : "");
         String sub = tr("rysteams.card.hint", (int) mc.player.distanceTo(target));
         boolean invite = free && TeamClient.can(works.repka.rysteams.api.Permission.INVITE);
-        String inviteLabel = tr("rysteams.card.invite", key(ClientEntry.ACCEPT)), pingLabel = tr("rysteams.card.ping", ClientEntry.PING.getTranslatedKeyMessage().getString());
+        String inviteLabel = tr("rysteams.card.invite", works.repka.ryscore.action.Answers.acceptKey()), pingLabel = tr("rysteams.card.ping", ClientEntry.PING.getTranslatedKeyMessage().getString());
         int textW = (int) Math.ceil(Math.max(Draw.labelWidth(title, 12.5f, Weight.SEMIBOLD), Draw.labelWidth(sub, 11, Weight.REGULAR)));
         int iw = invite ? (int) Math.ceil(Draw.labelWidth(inviteLabel, 12, Weight.SEMIBOLD)) + 12 : 0;
         int pw = (int) Math.ceil(Draw.labelWidth(pingLabel, 12, Weight.REGULAR)) + 10;
