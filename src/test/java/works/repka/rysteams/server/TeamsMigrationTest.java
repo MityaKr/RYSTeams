@@ -239,11 +239,37 @@ class TeamsMigrationTest {
     }
 
     @Test
-    void brokenFileMakesItPartial() throws IOException {
-        Files.writeString(world.resolve("ftbteams/party/ffffffff-0000-0000-0000-000000000000.snbt"), "{ id: \"x\" ranks: {", StandardCharsets.UTF_8);
+    void brokenFileMakesItPartialAndNextStartBringsTheRest() throws IOException {
+        UUID other = UUID.fromString("ffffffff-0000-0000-0000-000000000000");
+        UUID bob = UUID.randomUUID();
+        Path broken = world.resolve("ftbteams/party/" + other + ".snbt");
+        Files.writeString(broken, "{ id: \"x\" ranks: {", StandardCharsets.UTF_8);
         Migrations.Outcome o = start();
         assertEquals(Migrations.Status.PARTIAL, o.status(), o.toString());
         assertNotNull(current.teams.get(VENIK), "остальные команды перенесены");
+        // отметки «сделано» нет: при следующем запуске шаг идёт снова, VENIK не задваивается
+        restart();
+        assertEquals(Migrations.Status.PARTIAL, start().status());
+        assertEquals(1, current.teams.size());
+        // файл починили: следующий запуск добирает команду и ставит отметку
+        party(other, "Other", Map.of(bob, "owner"));
+        restart();
+        Migrations.Outcome fixed = start();
+        assertEquals(Migrations.Status.DONE, fixed.status(), fixed.toString());
+        assertEquals(1L, fixed.report().counts().get("teams"));
+        assertTrue(fixed.report().skipped().contains("VENIK: уже есть"), fixed.toString());
+        assertEquals(2, current.teams.size());
+        assertEquals(2, current.teams.get(VENIK).members.size());
+        restart();
+        assertEquals(Migrations.Status.ALREADY_DONE, start().status());
+    }
+
+    /** Команда FTB в файле: ранги игроков {@code owner}, {@code member}, {@code ally}. */
+    private void party(UUID id, String name, Map<UUID, String> ranks) throws IOException {
+        StringBuilder r = new StringBuilder();
+        ranks.forEach((p, rank) -> r.append("    ").append(p).append(": \"").append(rank).append("\"\n"));
+        Files.writeString(world.resolve("ftbteams/party/" + id + ".snbt"), "{\n  id: \"" + id + "\"\n  type: \"party\"\n  ranks: {\n" + r
+            + "  }\n  properties: {\n    \"ftbteams:display_name\": \"" + name + "\"\n  }\n}\n", StandardCharsets.UTF_8);
     }
 
     /** Копия мира тестового сервера RepYS: команды там перенесены руками 17.11, шаг должен только поставить отметку. */
