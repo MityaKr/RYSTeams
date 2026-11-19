@@ -237,5 +237,8 @@
   "rysteams.map.row.by": "Поставил",
   "rysteams.map.row.pos": "Место",
   "rysteams.map.track": "Вести путь",
-  "rysteams.map.remove": "Убрать"
+  "rysteams.map.remove": "Убрать",
+  "rysteams.map.ally_sub": "Метка союза %s",
+  "rysteams.map.audience.team": "Команда",
+  "rysteams.map.audience.allies": "Команда и союз"
 }

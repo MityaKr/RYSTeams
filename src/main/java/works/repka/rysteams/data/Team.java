@@ -86,17 +86,23 @@ public final class Team {
      * Метка команды.
      * @param expires когда снимается (мс), 0 значит постоянная: в старых сохранениях поля нет
      * @param owner чья это метка гибели, у прочих null
+     * @param allies метку видят и союзники («Кто видит: команда и союз», 0.2.6); в старых сохранениях поля нет
      */
-    public record Mark(UUID id, String name, String dimension, int x, int y, int z, String icon, String by, String source, long expires, UUID owner) {
+    public record Mark(UUID id, String name, String dimension, int x, int y, int z, String icon, String by, String source, long expires, UUID owner,
+                       boolean allies) {
+        public Mark(UUID id, String name, String dimension, int x, int y, int z, String icon, String by, String source, long expires, UUID owner) {
+            this(id, name, dimension, x, y, z, icon, by, source, expires, owner, false);
+        }
+
         public Mark(UUID id, String name, String dimension, int x, int y, int z, String icon, String by, String source) {
-            this(id, name, dimension, x, y, z, icon, by, source, 0, null);
+            this(id, name, dimension, x, y, z, icon, by, source, 0, null, false);
         }
 
         public boolean death() {
             return SOURCE_DEATH.equals(source);
         }
 
-        CompoundTag save() {
+        public CompoundTag save() {
             CompoundTag t = new CompoundTag();
             t.putUUID("id", id);
             t.putString("name", name);
@@ -109,12 +115,14 @@ public final class Team {
             t.putString("src", source);
             if (expires != 0) t.putLong("exp", expires);
             if (owner != null) t.putUUID("owner", owner);
+            if (allies) t.putBoolean("ally", true);
             return t;
         }
 
-        static Mark load(CompoundTag t) {
+        public static Mark load(CompoundTag t) {
             return new Mark(t.getUUID("id"), t.getString("name"), t.getString("dim"), t.getInt("x"), t.getInt("y"), t.getInt("z"),
-                t.getString("icon"), t.getString("by"), t.getString("src"), t.getLong("exp"), t.hasUUID("owner") ? t.getUUID("owner") : null);
+                t.getString("icon"), t.getString("by"), t.getString("src"), t.getLong("exp"), t.hasUUID("owner") ? t.getUUID("owner") : null,
+                t.getBoolean("ally"));
         }
     }
 

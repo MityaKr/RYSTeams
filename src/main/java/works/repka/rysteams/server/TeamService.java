@@ -301,6 +301,11 @@ public final class TeamService {
         DIRTY_PLAYERS.clear();
         dirtyLobby = false;
         TeamStore s = store();
+        // союзникам тоже: у них список союза и открытые союзу метки этой команды
+        for (UUID id : new ArrayList<>(dirty)) {
+            Team t = s.teams.get(id);
+            if (t != null) dirty.addAll(t.allies);
+        }
         Shared shared = new Shared();
         for (ServerPlayer p : server.getPlayerList().getPlayers()) {
             UUID team = s.byPlayer.get(p.getUUID());
@@ -340,7 +345,7 @@ public final class TeamService {
     private static final class Shared {
         ListTag teams, online;
         final Map<UUID, CompoundTag> full = new HashMap<>(), noAlerts = new HashMap<>();
-        final Map<UUID, ListTag> allies = new HashMap<>(), offers = new HashMap<>();
+        final Map<UUID, ListTag> allies = new HashMap<>(), offers = new HashMap<>(), allyMarks = new HashMap<>();
         final Map<Merge, CompoundTag> merges = new HashMap<>();
     }
 
@@ -365,6 +370,23 @@ public final class TeamService {
         return out;
     }
 
+    /** Метки союзников, открытые союзу («Кто видит: команда и союз»): по команде-союзнику, с её именем и цветом. */
+    private static ListTag allyMarks(Team team) {
+        TeamStore s = store();
+        ListTag out = new ListTag();
+        for (UUID id : team.allies) {
+            Team ally = s.teams.get(id);
+            if (ally == null) continue;
+            ListTag marks = new ListTag();
+            for (Team.Mark m : ally.marks) if (m.allies() && !m.death()) marks.add(m.save());
+            if (marks.isEmpty()) continue;
+            CompoundTag x = summary(ally);
+            x.put("marks", marks);
+            out.add(x);
+        }
+        return out;
+    }
+
     private static CompoundTag teamTag(Shared sh, Team team, boolean alerts) {
         CompoundTag full = sh.full.computeIfAbsent(team.id, k -> team.save(true));
         if (alerts) return full;
@@ -385,6 +407,7 @@ public final class TeamService {
             out.put("team", teamTag(sh, team, team.can(me, Permission.SEE_ALERTS)));
             out.put("allies", sh.allies.computeIfAbsent(team.id, k -> summaries(team.allies)));
             out.put("allyOffers", sh.offers.computeIfAbsent(team.id, k -> summaries(ALLY_OFFERS.getOrDefault(team.id, Set.of()))));
+            out.put("allyMarks", sh.allyMarks.computeIfAbsent(team.id, k -> allyMarks(team)));
         }
         if (sh.teams == null) {
             sh.teams = new ListTag();
@@ -854,7 +877,7 @@ public final class TeamService {
             "waypoint:" + dim + ":" + pos.getX() + ":" + pos.getY() + ":" + pos.getZ());
     }
 
-    /** Правка метки из окна карты (Т2): новое имя и (или) место. Права те же, что на удаление; метку гибели не правят. */
+    /** Правка метки из окна карты (Т2): новое имя, место, «кто видит» (команда или команда и союз). Права те же, что на удаление; метку гибели не правят. */
     private static void markEdit(ServerPlayer p, Team team, CompoundTag a, UUID me, String name) {
         UUID id = a.getUUID("id");
         int index = -1;
@@ -869,8 +892,9 @@ public final class TeamService {
         String title = a.contains("name") ? clip(a.getString("name")) : m.name();
         if (title.isEmpty()) return;
         int x = a.contains("x") ? a.getInt("x") : m.x(), y = a.contains("y") ? a.getInt("y") : m.y(), z = a.contains("z") ? a.getInt("z") : m.z();
-        if (title.equals(m.name()) && x == m.x() && y == m.y() && z == m.z()) return;
-        team.marks.set(index, new Team.Mark(m.id(), title, m.dimension(), x, y, z, m.icon(), m.by(), m.source(), m.expires(), m.owner()));
+        boolean allies = a.contains("allies") ? a.getBoolean("allies") : m.allies();
+        if (title.equals(m.name()) && x == m.x() && y == m.y() && z == m.z() && allies == m.allies()) return;
+        team.marks.set(index, new Team.Mark(m.id(), title, m.dimension(), x, y, z, m.icon(), m.by(), m.source(), m.expires(), m.owner(), allies));
         touch(team);
     }
 

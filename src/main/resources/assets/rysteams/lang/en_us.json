@@ -237,5 +237,8 @@
   "rysteams.map.row.by": "Set by",
   "rysteams.map.row.pos": "Place",
   "rysteams.map.track": "Show the way",
-  "rysteams.map.remove": "Remove"
+  "rysteams.map.remove": "Remove",
+  "rysteams.map.ally_sub": "Mark of ally %s",
+  "rysteams.map.audience.team": "Team",
+  "rysteams.map.audience.allies": "Team and allies"
 }

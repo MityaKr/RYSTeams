@@ -111,6 +111,7 @@ public final class TeamMap implements MapApi.Layer, Labels.Source {
         for (Map.Entry<UUID, TeamClient.Pres> e : TeamClient.PRESENCE.entrySet()) sig = sig * 31 + e.hashCode();
         TeamClient.Waypoint w = TeamClient.waypoint;
         sig = sig * 31 + (w == null ? 0 : w.hashCode());
+        sig = sig * 31 + System.identityHashCode(TeamClient.allyMarks);
         if (sig != signature) {
             signature = sig;
             revision++;
@@ -141,6 +142,9 @@ public final class TeamMap implements MapApi.Layer, Labels.Source {
                     .build());
             }
         }
+        for (TeamClient.AllyMarks a : TeamClient.allyMarks) {
+            for (Team.Mark m : a.marks()) if (m.dimension().equals(dim)) out.add(allyMarker(dimension, a, m));
+        }
         for (TeamClient.Ping p : TeamClient.PINGS) {
             if (!p.dimension().equals(dim)) continue;
             Component kind = Component.translatable("rysteams.ping." + p.kind());
@@ -164,6 +168,20 @@ public final class TeamMap implements MapApi.Layer, Labels.Source {
         if (death) b.icon(Icons.Shape.SKULL).color(0xFFE5484D);
         else b.item(TeamClient.icon(m.icon())).color(0xFF000000 | (TeamClient.team == null ? 0xF7F8FB : TeamClient.team.color));
         return b.build();
+    }
+
+    /** Метка союзника, открытая союзу: только чтение, цвет и имя его команды. */
+    private static MapApi.Marker allyMarker(ResourceKey<Level> dimension, TeamClient.AllyMarks a, Team.Mark m) {
+        Component sub = Component.translatable("rysteams.map.ally_sub", a.name());
+        return MapApi.Marker.builder(m.id()).pos(dimension, m.x() + 0.5, m.y(), m.z() + 0.5).kind(MapApi.Kind.POINT)
+            .item(TeamClient.icon(m.icon())).color(0xFF000000 | a.color()).label(Component.literal(m.name())).note(sub)
+            .panel(() -> MapApi.Panel.builder(Component.literal(m.name())).subtitle(sub)
+                .row(Component.translatable("rysteams.map.row.by"), Component.literal(m.by()))
+                .row(Component.translatable("rysteams.map.row.pos"), Component.literal(m.x() + " " + m.y() + " " + m.z()))
+                .action(MapApi.Action.builder(Component.translatable("rysteams.map.track"), () -> MapApi.get().track(target(dimension, m.x(), m.y(), m.z(), m.name())))
+                    .icon(Icons.Shape.NAV).primary(true).build())
+                .build())
+            .build();
     }
 
     private static MapApi.Panel panel(ResourceKey<Level> dimension, Team.Mark m) {
@@ -211,6 +229,26 @@ public final class TeamMap implements MapApi.Layer, Labels.Source {
             public void remove() {
                 TeamMap.remove(m);
             }
+
+            /** «Кто видит» (макет 15): команда или команда и союз. «Только я» нет: метка команды общая. */
+            @Override
+            public List<Component> audiences() {
+                return List.of(Component.translatable("rysteams.map.audience.team"), Component.translatable("rysteams.map.audience.allies"));
+            }
+
+            @Override
+            public int audience() {
+                return m.allies() ? 1 : 0;
+            }
+
+            @Override
+            public void audience(int index) {
+                if ((index == 1) == m.allies()) return;
+                CompoundTag t = new CompoundTag();
+                t.putUUID("id", m.id());
+                t.putBoolean("allies", index == 1);
+                TeamClient.action("mark_edit", t);
+            }
         };
     }
 
@@ -235,6 +273,14 @@ public final class TeamMap implements MapApi.Layer, Labels.Source {
             else hit.item(TeamClient.icon(m.icon())).color(0xFF000000 | team.color);
             out.add(hit.build());
         }
+        for (TeamClient.AllyMarks a : TeamClient.allyMarks) {
+            for (Team.Mark m : a.marks()) {
+                ResourceKey<Level> dim = dimension(m.dimension());
+                if (dim == null || !m.name().toLowerCase(Locale.ROOT).contains(q)) continue;
+                out.add(MapApi.Hit.builder(Component.literal(m.name()), target(dim, m.x(), m.y(), m.z(), m.name()))
+                    .note(Component.translatable("rysteams.map.ally_sub", a.name())).item(TeamClient.icon(m.icon())).color(0xFF000000 | a.color()).build());
+            }
+        }
         return out;
     }
 
@@ -255,6 +301,13 @@ public final class TeamMap implements MapApi.Layer, Labels.Source {
                 if (m.death()) b.icon(Icons.Shape.SKULL).color(0xFFE5484D);
                 else b.item(TeamClient.icon(m.icon())).color(0xFF000000 | team.color);
                 out.add(b.build());
+            }
+        }
+        for (TeamClient.AllyMarks a : TeamClient.allyMarks) {
+            for (Team.Mark m : a.marks()) {
+                if (!m.dimension().equals(dim) || (mc.player != null && distance(mc, m.x(), m.z()) > MARK_RANGE)) continue;
+                out.add(Labels.Label.builder(m.id()).pos(dimension, m.x() + 0.5, m.y() + 1.5, m.z() + 0.5).kind(Labels.Kind.POINT)
+                    .item(TeamClient.icon(m.icon())).color(0xFF000000 | a.color()).text(Component.literal(m.name())).build());
             }
         }
         for (TeamClient.Ping p : TeamClient.PINGS) {

@@ -40,12 +40,16 @@ public final class TeamClient {
 
     public record Toast(Component text, boolean bad, long until) {}
 
+    /** Метки команды-союзника, открытые союзу. */
+    public record AllyMarks(UUID team, String name, int color, List<Team.Mark> marks) {}
+
 
     @Nullable public static Team team;
     public static List<Info> teams = List.of();
     public static List<Info> invites = List.of();
     public static List<Info> allies = List.of();
     public static List<Info> allyOffers = List.of();
+    public static List<AllyMarks> allyMarks = List.of();
     public static List<Online> online = List.of();
     public static boolean hideCoords;
     /** «Сообщать о моей смерти»: хранится на сервере, по умолчанию включено. */
@@ -71,6 +75,7 @@ public final class TeamClient {
     public static void reset() {
         team = null;
         teams = invites = allies = allyOffers = List.of();
+        allyMarks = List.of();
         online = List.of();
         merge = null;
         undoUntil = 0;
@@ -148,6 +153,14 @@ public final class TeamClient {
         invites = fresh;
         allies = infos(t, "allies");
         allyOffers = infos(t, "allyOffers");
+        List<AllyMarks> shared = new ArrayList<>();
+        for (Tag x : t.getList("allyMarks", Tag.TAG_COMPOUND)) {
+            CompoundTag c = (CompoundTag) x;
+            List<Team.Mark> marks = new ArrayList<>();
+            for (Tag m : c.getList("marks", Tag.TAG_COMPOUND)) marks.add(Team.Mark.load((CompoundTag) m));
+            shared.add(new AllyMarks(c.getUUID("id"), c.getString("name"), c.getInt("color"), List.copyOf(marks)));
+        }
+        allyMarks = List.copyOf(shared);
         Minecraft mc = Minecraft.getInstance();
         UUID self = mc.player == null ? null : mc.player.getUUID();
         List<Online> people = new ArrayList<>();

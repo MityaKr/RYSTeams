@@ -211,13 +211,17 @@ public final class TeamsAutoTest {
             works.repka.ryscore.map.MapApi.menus().stream().filter(i -> i.id().toString().equals("rysteams:ping_danger")).findFirst().orElseThrow()
                 .run(new works.repka.ryscore.map.MapApi.Spot(dim, 10, 70, 10, 0, 0));
             var mark = TeamClient.team.marks.stream().filter(m -> m.name().equals("Портал в Незер")).findFirst().orElseThrow();
-            layer.markers(dim).stream().filter(m -> m.id().equals(mark.id())).findFirst().orElseThrow().editor().rename("Портал");
+            var editor = layer.markers(dim).stream().filter(m -> m.id().equals(mark.id())).findFirst().orElseThrow().editor();
+            check("карта: «Кто видит» у метки команды", editor.audiences().size() == 2 && editor.audience() == 0);
+            editor.rename("Портал");
+            editor.audience(1);
         }, 10);
         step("map layer check", () -> {
             var dim = mc().level.dimension();
             var layer = works.repka.ryscore.map.MapApi.layers().stream().filter(l -> l.id().equals(works.repka.rysteams.client.TeamMap.ID)).findFirst().orElseThrow();
             check("карта: пинг с карты пришёл и стоит на слое", layer.markers(dim).stream().anyMatch(m -> m.kind() == works.repka.ryscore.map.MapApi.Kind.PING && m.x() == 10.5 && m.z() == 10.5));
             check("карта: метку переименовали из окна карты", TeamClient.team.marks.stream().anyMatch(m -> m.name().equals("Портал")));
+            check("карта: метку открыли союзу", TeamClient.team.marks.stream().anyMatch(m -> m.name().equals("Портал") && m.allies()));
         }, 2);
         shot("team");
         step("team hold", () -> {}, 2);
