@@ -95,6 +95,11 @@ public final class TeamService {
     /** Игроки, которым нужно новое состояние, хотя их команда не менялась: приглашение, заявка, скрытие координат. */
     private static final Set<UUID> DIRTY_PLAYERS = new HashSet<>();
     private static boolean dirtyLobby;
+    /**
+     * Вошедшие и вышедшие с прошлой рассылки (разбор логики 19.11, раздел 5, пункт 5): вошедшему уходит лобби целиком,
+     * остальным только строка «+игрок» или «−игрок», а не полное состояние всем.
+     */
+    private static final Set<UUID> JOINED = new LinkedHashSet<>(), LEFT = new LinkedHashSet<>();
     private static int ticks;
 
     private TeamService() {}
@@ -111,6 +116,8 @@ public final class TeamService {
         DEATH_FEED.clear();
         DIRTY.clear();
         DIRTY_PLAYERS.clear();
+        JOINED.clear();
+        LEFT.clear();
         Presence.reset();
         FtbImport.repairNames(s);
         repair(store());
@@ -197,8 +204,11 @@ public final class TeamService {
         } catch (RuntimeException e) {
             RYSTeams.LOG.error("Вход игрока {}: ошибка команд", player.getGameProfile().getName(), e);
         }
-        // состояние уйдёт в ближайшем тике: игрок уже в списке сервера
-        dirtyLobby = true;
+        // состояние и лобби уйдут ему в ближайшем тике (игрок уже в списке сервера), остальным строка «+игрок»
+        UUID joined = player.getUUID();
+        LEFT.remove(joined);
+        JOINED.add(joined);
+        DIRTY_PLAYERS.add(joined);
     }
 
     public static void logout(ServerPlayer player) {
@@ -213,7 +223,9 @@ public final class TeamService {
         Presence.forget(id);
         BUCKETS.remove(id);
         COOLDOWN.remove(id);
-        dirtyLobby = true;
+        // остальным строка «−игрок»; вошедший и тут же вышедший никому не нужен
+        if (!JOINED.remove(id)) LEFT.add(id);
+        DIRTY_PLAYERS.remove(id);
     }
 
     public static void tick() {
@@ -221,7 +233,7 @@ public final class TeamService {
         ticks++;
         // события контракта (роль, союз, имя) сверкой с прошлым снимком: ловит любые пути правки, в том числе слияние и автопередачу
         if (!DIRTY.isEmpty() || ticks % 20 == 0) safely("события для модов", () -> ApiEvents.check(store()));
-        if (!DIRTY.isEmpty() || !DIRTY_PLAYERS.isEmpty() || dirtyLobby) safely("рассылка состояния", TeamService::flush);
+        if (!DIRTY.isEmpty() || !DIRTY_PLAYERS.isEmpty() || dirtyLobby || !JOINED.isEmpty() || !LEFT.isEmpty()) safely("рассылка состояния", TeamService::flush);
         if (ticks % 40 == 0) safely("присутствие", () -> Presence.broadcast(server, store()));
         if (ticks % 200 == 0) safely("сроки", TeamService::expire);
         if (ticks % 20 == 0) safely("метки гибели", TeamService::expireMarks);
@@ -293,14 +305,36 @@ public final class TeamService {
         store().setDirty();
     }
 
+    /**
+     * Рассылка. Лобби (все команды и все в сети) ходит отдельным пакетом: целиком всем, когда меняется список команд или
+     * кто в какой команде (создание, вступление, уход, роспуск: редко), и одному вошедшему; на вход и выход остальным
+     * уходит строка «+игрок» или «−игрок». Состояние своей команды получают её участники и игроки из {@link #DIRTY_PLAYERS}.
+     */
     private static void flush() {
         boolean lobby = dirtyLobby;
         Set<UUID> dirty = new HashSet<>(DIRTY);
         Set<UUID> players = new HashSet<>(DIRTY_PLAYERS);
+        Set<UUID> joined = new LinkedHashSet<>(JOINED), left = new LinkedHashSet<>(LEFT);
         DIRTY.clear();
         DIRTY_PLAYERS.clear();
+        JOINED.clear();
+        LEFT.clear();
         dirtyLobby = false;
         TeamStore s = store();
+        CompoundTag lobbyTag = lobby || !joined.isEmpty() ? lobbyTag(s) : null;
+        CompoundTag delta = !lobby && (!joined.isEmpty() || !left.isEmpty()) ? lobbyDelta(s, joined, left) : null;
+        for (ServerPlayer p : server.getPlayerList().getPlayers()) {
+            UUID id = p.getUUID();
+            try {
+                if (lobby || joined.contains(id)) {
+                    ModNetwork.send(p, lobbyTag);
+                } else if (delta != null) {
+                    ModNetwork.send(p, delta);
+                }
+            } catch (RuntimeException e) {
+                RYSTeams.LOG.error("Лобби для {} не отправлено", p.getGameProfile().getName(), e);
+            }
+        }
         // союзникам тоже: у них список союза и открытые союзу метки этой команды
         for (UUID id : new ArrayList<>(dirty)) {
             Team t = s.teams.get(id);
@@ -323,6 +357,43 @@ public final class TeamService {
         DIRTY.add(team.id);
     }
 
+    /** Лобби целиком: сводки всех команд и все игроки в сети (себя клиент пропускает сам). */
+    private static CompoundTag lobbyTag(TeamStore s) {
+        CompoundTag out = new CompoundTag();
+        out.putString("type", "lobby");
+        ListTag teams = new ListTag();
+        for (Team t : s.teams.values()) teams.add(summary(t));
+        out.put("teams", teams);
+        ListTag online = new ListTag();
+        for (ServerPlayer p : server.getPlayerList().getPlayers()) online.add(onlineTag(s, p));
+        out.put("online", online);
+        return out;
+    }
+
+    private static CompoundTag onlineTag(TeamStore s, ServerPlayer p) {
+        CompoundTag x = new CompoundTag();
+        x.putUUID("id", p.getUUID());
+        x.putString("name", p.getGameProfile().getName());
+        x.putBoolean("free", !s.byPlayer.containsKey(p.getUUID()));
+        return x;
+    }
+
+    /** Строка лобби на вход и выход: кто пришёл (с именем и «без команды»), кто ушёл. */
+    private static CompoundTag lobbyDelta(TeamStore s, Set<UUID> joined, Set<UUID> left) {
+        CompoundTag out = new CompoundTag();
+        out.putString("type", "lobby_delta");
+        ListTag add = new ListTag();
+        for (UUID id : joined) {
+            ServerPlayer p = online(id);
+            if (p != null) add.add(onlineTag(s, p));
+        }
+        out.put("add", add);
+        ListTag gone = new ListTag();
+        for (UUID id : left) gone.add(StringTag.valueOf(id.toString()));
+        out.put("gone", gone);
+        return out;
+    }
+
     private static void touchLobby() {
         store().setDirty();
         dirtyLobby = true;
@@ -343,7 +414,6 @@ public final class TeamService {
      * После отправки теги не меняются, клиент их только читает.
      */
     private static final class Shared {
-        ListTag teams, online;
         final Map<UUID, CompoundTag> full = new HashMap<>(), noAlerts = new HashMap<>();
         final Map<UUID, ListTag> allies = new HashMap<>(), offers = new HashMap<>(), allyMarks = new HashMap<>();
         final Map<Merge, CompoundTag> merges = new HashMap<>();
@@ -409,12 +479,7 @@ public final class TeamService {
             out.put("allyOffers", sh.offers.computeIfAbsent(team.id, k -> summaries(ALLY_OFFERS.getOrDefault(team.id, Set.of()))));
             out.put("allyMarks", sh.allyMarks.computeIfAbsent(team.id, k -> allyMarks(team)));
         }
-        if (sh.teams == null) {
-            sh.teams = new ListTag();
-            for (Team t : s.teams.values()) sh.teams.add(summary(t));
-        }
-        // список общий, свою команду клиент убирает сам
-        out.put("teams", sh.teams);
+        // общий список команд и игроков в сети ходит отдельно (пакет lobby), здесь только своё
         if (team == null) {
             ListTag pending = new ListTag();
             for (Team t : s.teams.values()) if (t.requests.containsKey(me)) pending.add(StringTag.valueOf(t.id.toString()));
@@ -431,18 +496,6 @@ public final class TeamService {
             invites.add(x);
         }
         out.put("invites", invites);
-        if (sh.online == null) {
-            // общий список со всеми, себя клиент пропускает сам
-            sh.online = new ListTag();
-            for (ServerPlayer p : server.getPlayerList().getPlayers()) {
-                CompoundTag x = new CompoundTag();
-                x.putUUID("id", p.getUUID());
-                x.putString("name", p.getGameProfile().getName());
-                x.putBoolean("free", !s.byPlayer.containsKey(p.getUUID()));
-                sh.online.add(x);
-            }
-        }
-        out.put("online", sh.online);
         out.putBoolean("hide", s.hideCoords.contains(me));
         out.putBoolean("deathNotice", !s.quietDeath.contains(me));
         out.putBoolean("serverMode", TeamsConfig.isServerMode());

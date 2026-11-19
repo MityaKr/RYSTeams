@@ -51,6 +51,9 @@ public final class TeamClient {
     public static List<Info> allyOffers = List.of();
     public static List<AllyMarks> allyMarks = List.of();
     public static List<Online> online = List.of();
+    /** Лобби от сервера как есть: все команды и заявки игрока; {@link #teams} собирается из них без своей команды. */
+    private static List<Info> lobbyTeams = List.of();
+    private static java.util.Set<String> pending = java.util.Set.of();
     public static boolean hideCoords;
     /** «Сообщать о моей смерти»: хранится на сервере, по умолчанию включено. */
     public static boolean deathNotice = true;
@@ -74,7 +77,8 @@ public final class TeamClient {
 
     public static void reset() {
         team = null;
-        teams = invites = allies = allyOffers = List.of();
+        teams = invites = allies = allyOffers = lobbyTeams = List.of();
+        pending = java.util.Set.of();
         allyMarks = List.of();
         online = List.of();
         merge = null;
@@ -95,6 +99,8 @@ public final class TeamClient {
     public static void accept(CompoundTag t) {
         switch (t.getString("type")) {
             case "state" -> state(t);
+            case "lobby" -> lobby(t);
+            case "lobby_delta" -> lobbyDelta(t);
             case "presence" -> presence(t);
             case "ping" -> PINGS.add(new Ping(t.getString("by"), t.getInt("color"), t.getString("kind"), t.getString("dim"),
                 t.getInt("x"), t.getInt("y"), t.getInt("z"), System.currentTimeMillis() + ClientEntry.PING_SECONDS.get() * 1000L));
@@ -122,15 +128,10 @@ public final class TeamClient {
 
     private static void state(CompoundTag t) {
         team = t.contains("team") ? Team.load(t.getCompound("team")) : null;
-        // сервер шлёт общий список всех команд и всех игроков: себя и свою команду убираем здесь
-        java.util.Set<String> pending = new java.util.HashSet<>();
-        for (Tag x : t.getList("pending", Tag.TAG_STRING)) pending.add(x.getAsString());
-        List<Info> all = new ArrayList<>();
-        for (Info i : infos(t, "teams")) {
-            if (team != null && i.id().equals(team.id)) continue;
-            all.add(pending.contains(i.id().toString()) ? new Info(i.id(), i.name(), i.color(), i.icon(), i.count(), i.join(), i.by(), i.until(), true) : i);
-        }
-        teams = all;
+        java.util.Set<String> mine = new java.util.HashSet<>();
+        for (Tag x : t.getList("pending", Tag.TAG_STRING)) mine.add(x.getAsString());
+        pending = mine;
+        rebuildTeams();
         List<Info> fresh = infos(t, "invites");
         // на приглашение ответили, сервер его убрал: плашка переходит к следующему висящему
         if (inviteAnswered) {
@@ -161,15 +162,6 @@ public final class TeamClient {
             shared.add(new AllyMarks(c.getUUID("id"), c.getString("name"), c.getInt("color"), List.copyOf(marks)));
         }
         allyMarks = List.copyOf(shared);
-        Minecraft mc = Minecraft.getInstance();
-        UUID self = mc.player == null ? null : mc.player.getUUID();
-        List<Online> people = new ArrayList<>();
-        for (Tag x : t.getList("online", Tag.TAG_COMPOUND)) {
-            CompoundTag c = (CompoundTag) x;
-            if (c.getUUID("id").equals(self)) continue;
-            people.add(new Online(c.getUUID("id"), c.getString("name"), c.getBoolean("free")));
-        }
-        online = people;
         // присутствие бывших сокомандников больше не нужно
         if (team == null) PRESENCE.clear();
         else PRESENCE.keySet().retainAll(team.members.keySet());
@@ -189,6 +181,50 @@ public final class TeamClient {
         } else {
             merge = null;
         }
+    }
+
+    /** Лобби целиком: все команды и все в сети (разбор логики 19.11: отдельно от состояния). */
+    private static void lobby(CompoundTag t) {
+        lobbyTeams = infos(t, "teams");
+        UUID self = self();
+        List<Online> people = new ArrayList<>();
+        for (Tag x : t.getList("online", Tag.TAG_COMPOUND)) {
+            CompoundTag c = (CompoundTag) x;
+            if (c.getUUID("id").equals(self)) continue;
+            people.add(new Online(c.getUUID("id"), c.getString("name"), c.getBoolean("free")));
+        }
+        online = people;
+        rebuildTeams();
+    }
+
+    /** Кто вошёл и кто вышел с прошлой рассылки. */
+    private static void lobbyDelta(CompoundTag t) {
+        UUID self = self();
+        List<Online> people = new ArrayList<>(online);
+        java.util.Set<UUID> gone = new java.util.HashSet<>();
+        for (Tag x : t.getList("gone", Tag.TAG_STRING)) gone.add(UUID.fromString(x.getAsString()));
+        for (Tag x : t.getList("add", Tag.TAG_COMPOUND)) gone.add(((CompoundTag) x).getUUID("id"));
+        people.removeIf(o -> gone.contains(o.id()));
+        for (Tag x : t.getList("add", Tag.TAG_COMPOUND)) {
+            CompoundTag c = (CompoundTag) x;
+            if (!c.getUUID("id").equals(self)) people.add(new Online(c.getUUID("id"), c.getString("name"), c.getBoolean("free")));
+        }
+        online = people;
+    }
+
+    /** Список команд для лобби: без своей, с пометкой «заявка отправлена». */
+    private static void rebuildTeams() {
+        List<Info> all = new ArrayList<>();
+        for (Info i : lobbyTeams) {
+            if (team != null && i.id().equals(team.id)) continue;
+            all.add(pending.contains(i.id().toString()) ? new Info(i.id(), i.name(), i.color(), i.icon(), i.count(), i.join(), i.by(), i.until(), true) : i);
+        }
+        teams = all;
+    }
+
+    private static @Nullable UUID self() {
+        Minecraft mc = Minecraft.getInstance();
+        return mc.player == null ? null : mc.player.getUUID();
     }
 
     private static void presence(CompoundTag t) {
