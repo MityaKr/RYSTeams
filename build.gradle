@@ -123,3 +123,9 @@ processResources {
         expand props
     }
 }
+
+// LICENSE and NOTICE.md go into every jar of the mod (MPL-2.0 for code, notice about graphics and third-party parts).
+tasks.withType(Jar).configureEach {
+    from(rootProject.file('LICENSE'))
+    from(rootProject.file('NOTICE.md'))
+}
