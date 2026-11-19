@@ -232,7 +232,8 @@ public final class TeamService {
         if (server == null) return;
         ticks++;
         // события контракта (роль, союз, имя) сверкой с прошлым снимком: ловит любые пути правки, в том числе слияние и автопередачу
-        if (!DIRTY.isEmpty() || ticks % 20 == 0) safely("события для модов", () -> ApiEvents.check(store()));
+        if (ticks % 1200 == 0) safely("события для модов", () -> ApiEvents.check(store()));
+        else if (!DIRTY.isEmpty()) safely("события для модов", () -> ApiEvents.check(store(), DIRTY));
         if (!DIRTY.isEmpty() || !DIRTY_PLAYERS.isEmpty() || dirtyLobby || !JOINED.isEmpty() || !LEFT.isEmpty()) safely("рассылка состояния", TeamService::flush);
         if (ticks % 40 == 0) safely("присутствие", () -> Presence.broadcast(server, store()));
         if (ticks % 200 == 0) safely("сроки", TeamService::expire);
