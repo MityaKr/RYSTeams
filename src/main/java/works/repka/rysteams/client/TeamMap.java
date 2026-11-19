@@ -27,7 +27,7 @@ import works.repka.rysteams.data.Team;
  *
  * <ul>
  *   <li>Слой «Команда»: пинги участников и союзников (клавиша V или пункт карты), постоянные метки команды с панелью и правкой
- *       из окна карты, участники, у которых задано «чем занят» (голова с подписью-статусом, только на большой карте).</li>
+ *       из окна карты, места гибели участников (своё ведёт карта), участники, у которых задано «чем занят» (голова с подписью-статусом, только на большой карте).</li>
  *   <li>Подписи в мире: пинги, метки и цель из ленты отдаются источником {@link Labels}; пока его рисует карта
  *       ({@link Labels#present()}), {@link TeamHud} свои подписи не рисует.</li>
  *   <li>Пункты меню карты: пинг четырёх видов (первый под id {@code rysmap:ping}, тогда свой пункт карты уступает место) и
@@ -124,11 +124,11 @@ public final class TeamMap implements MapApi.Layer, Labels.Source {
         List<MapApi.Marker> out = new ArrayList<>();
         Team team = TeamClient.team;
         if (team != null) {
-            for (Team.Mark m : team.marks) {
-                if (m.dimension().equals(dim)) out.add(marker(dimension, m));
-            }
             Minecraft mc = Minecraft.getInstance();
             UUID self = mc.player == null ? null : mc.player.getUUID();
+            for (Team.Mark m : team.marks) {
+                if (m.dimension().equals(dim) && !ownDeath(m, self)) out.add(marker(dimension, m));
+            }
             for (Map.Entry<UUID, TeamClient.Pres> e : TeamClient.PRESENCE.entrySet()) {
                 TeamClient.Pres p = e.getValue();
                 Team.Member member = team.members.get(e.getKey());
@@ -248,7 +248,8 @@ public final class TeamMap implements MapApi.Layer, Labels.Source {
         Team team = TeamClient.team;
         if (team != null) {
             for (Team.Mark m : team.marks) {
-                if (!m.dimension().equals(dim) || (mc.player != null && distance(mc, m.x(), m.z()) > MARK_RANGE)) continue;
+                if (!m.dimension().equals(dim) || ownDeath(m, mc.player == null ? null : mc.player.getUUID())
+                    || (mc.player != null && distance(mc, m.x(), m.z()) > MARK_RANGE)) continue;
                 Labels.Label.Builder b = Labels.Label.builder(m.id()).pos(dimension, m.x() + 0.5, m.y() + 1.5, m.z() + 0.5)
                     .kind(Labels.Kind.POINT).text(Component.literal(TeamHud.markTitle(m)));
                 if (m.death()) b.icon(Icons.Shape.SKULL).color(0xFFE5484D);
@@ -273,6 +274,11 @@ public final class TeamMap implements MapApi.Layer, Labels.Source {
     }
 
     // ---- помощники ----
+
+    /** Своё место гибели ведёт сама карта (план карты, 9.1, таблица RYSTeams): в слой и подписи оно не попадает. */
+    static boolean ownDeath(Team.Mark m, @Nullable UUID self) {
+        return m.death() && self != null && self.equals(m.owner());
+    }
 
     /** У пинга нет своего id: он постоянен для одного пинга, пока тот живёт. */
     static UUID pingId(TeamClient.Ping p) {
