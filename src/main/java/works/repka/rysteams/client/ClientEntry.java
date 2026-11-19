@@ -1,6 +1,11 @@
 package works.repka.rysteams.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import java.util.ArrayList;
+import java.util.List;
+import net.minecraft.network.chat.Component;
+import works.repka.ryscore.action.Action;
+import works.repka.ryscore.action.Actions;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.nbt.CompoundTag;
@@ -21,6 +26,8 @@ import net.neoforged.neoforge.common.ModConfigSpec;
 import net.neoforged.neoforge.common.NeoForge;
 import org.lwjgl.glfw.GLFW;
 import works.repka.ryscore.action.Answers;
+import works.repka.ryscore.action.Ring;
+import works.repka.ryscore.ui.Icons;
 import works.repka.rysteams.RYSTeams;
 import works.repka.rysteams.api.Permission;
 
@@ -29,13 +36,17 @@ public final class ClientEntry {
     private static final String CATEGORY = "key.categories.rysteams";
     /** В игре T открывает чат, поэтому экран команды на G. */
     public static final KeyMapping OPEN = new KeyMapping("key.rysteams.open", KeyConflictContext.IN_GAME, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_G, CATEGORY);
-    /** Средняя кнопка занята выбором блока, поэтому пинг на V. */
-    public static final KeyMapping PING = new KeyMapping("key.rysteams.ping", KeyConflictContext.IN_GAME, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_V, CATEGORY);
+    /**
+     * Пинг без клавиши по умолчанию (разбор логики 19.11, раздел 5): V делят десять модов сборки, NeoForge жмёт все действия на
+     * клавише. Пинг есть в колесе ({@code rysteams:ping}) и на карте; кто назначит клавишу, получит прежнее «держать и листать».
+     */
+    public static final KeyMapping PING = new KeyMapping("key.rysteams.ping", KeyConflictContext.IN_GAME, InputConstants.UNKNOWN, CATEGORY);
     /*
      * «Принять» и «Отказать» живут в ядре (RYSCore 1.14, Answers.ACCEPT и DECLINE, умолчания Y и N): они отвечают на приглашение
      * кнопками уведомления, а когда отвечать не на что, «Принять» зовёт в команду игрока под прицелом (запасной обработчик).
      */
-    public static final KeyMapping FRESH = new KeyMapping("key.rysteams.fresh", KeyConflictContext.IN_GAME, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_U, CATEGORY);
+    /** «С нуля» без клавиши по умолчанию: ответ остаётся кнопкой на уведомлении приглашения. */
+    public static final KeyMapping FRESH = new KeyMapping("key.rysteams.fresh", KeyConflictContext.IN_GAME, InputConstants.UNKNOWN, CATEGORY);
     public static final String[] PING_KINDS = {"here", "danger", "resource", "help", "mark"};
 
     public static final ModConfigSpec CLIENT_SPEC;
@@ -82,6 +93,37 @@ public final class ClientEntry {
         Answers.onAccept(ClientEntry::inviteLooked);
         // слой «Команда», подписи в мире и пункты пинга на карте семьи (Т2); без RYSMap ядро их просто хранит
         TeamMap.register();
+        registerActions();
+    }
+
+    /** Пинг в колесе семьи: сектор открывает список видов, как держать клавишу и листать (разбор логики 19.11, раздел 5). */
+    private static void registerActions() {
+        ResourceLocation id = ResourceLocation.fromNamespaceAndPath(RYSTeams.MODID, "ping");
+        Action.builder(id).label(() -> Component.translatable("rysteams.action.ping")).icon(Icons.Shape.BELL).group(Action.Group.TEAM).order(0)
+            .state(ClientEntry::pingState)
+            .list(() -> {
+                List<Action> kinds = new ArrayList<>();
+                for (int i = 0; i < PING_KINDS.length; i++) {
+                    String kind = PING_KINDS[i];
+                    kinds.add(Action.builder(ResourceLocation.fromNamespaceAndPath(RYSTeams.MODID, "ping_" + kind))
+                        .label(() -> Component.translatable("rysteams.ping." + kind)).icon(kind.equals("danger") ? Icons.Shape.WARN : kind.equals("mark") ? Icons.Shape.FLAG : Icons.Shape.BELL)
+                        .group(Action.Group.TEAM).order(i).state(ClientEntry::pingState).run(() -> sendPing(kind)).notBindable().build());
+                }
+                return kinds;
+            })
+            .register();
+        Actions.suggest(Ring.MINE, id);
+    }
+
+    private static Action.State pingState() {
+        if (TeamClient.team == null) return Action.State.off(Component.translatable("rysteams.action.no_team").getString());
+        if (!TeamClient.can(Permission.PING)) return Action.State.off(Component.translatable("rysteams.action.no_right").getString());
+        return Action.State.ready();
+    }
+
+    /** Имя назначенной клавиши или null, если клавиша не назначена (подсказки на экране её тогда не называют). */
+    public static @org.jetbrains.annotations.Nullable String keyName(KeyMapping key) {
+        return key.isUnbound() ? null : key.getTranslatedKeyMessage().getString();
     }
 
     private static void tick() {
@@ -106,9 +148,13 @@ public final class ClientEntry {
 
     /** Отпускание клавиши: короткое нажатие даёт «Сюда», при удержании выбранную подпись. */
     private static void sendPing() {
+        sendPing(pingHeld ? PING_KINDS[pingChoice] : PING_KINDS[0]);
+    }
+
+    /** Пинг туда, куда смотрит игрок: клавиша и колесо ({@code rysteams:ping}). «Метка…» открывает вкладку меток. */
+    static void sendPing(String kind) {
         Minecraft mc = Minecraft.getInstance();
         if (TeamClient.team == null || !TeamClient.can(Permission.PING) || mc.player == null) return;
-        String kind = pingHeld ? PING_KINDS[pingChoice] : PING_KINDS[0];
         if (kind.equals("mark")) {
             pingChoice = 0;
             mc.setScreen(TeamScreen.onMarks());

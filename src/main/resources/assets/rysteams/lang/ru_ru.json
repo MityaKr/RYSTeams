@@ -240,5 +240,9 @@
   "rysteams.map.remove": "Убрать",
   "rysteams.map.ally_sub": "Метка союза %s",
   "rysteams.map.audience.team": "Команда",
-  "rysteams.map.audience.allies": "Команда и союз"
+  "rysteams.map.audience.allies": "Команда и союз",
+  "rysteams.help.keys": "%s: команда · пинг: колесо семьи и карта",
+  "rysteams.action.ping": "Пинг команде",
+  "rysteams.action.no_team": "Нет команды",
+  "rysteams.action.no_right": "Нет права на пинг"
 }

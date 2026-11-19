@@ -138,10 +138,14 @@ public final class TeamHud {
             rowY += 23;
         }
         String left = more > 0 ? "+" + more : tr("rysteams.hud.open", key);
-        String right = tr("rysteams.hud.ping", ClientEntry.PING.getTranslatedKeyMessage().getString());
+        // пинг без клавиши по умолчанию (колесо и карта): подсказку пишем, только если клавишу назначили
+        String pingKey = ClientEntry.keyName(ClientEntry.PING);
         float hy = rowY + 3.5f;
         Draw.label(g, left, x + 6, hy, 10.5f, Weight.REGULAR, dim);
-        Draw.label(g, right, x + HUD_W - 6 - Draw.labelWidth(right, 10.5f, Weight.REGULAR), hy, 10.5f, Weight.REGULAR, dim);
+        if (pingKey != null) {
+            String right = tr("rysteams.hud.ping", pingKey);
+            Draw.label(g, right, x + HUD_W - 6 - Draw.labelWidth(right, 10.5f, Weight.REGULAR), hy, 10.5f, Weight.REGULAR, dim);
+        }
     }
 
     private static void row(GuiGraphics g, Theme t, Minecraft mc, Team team, Team.Member m, int x, int y, int w, int text, int muted, int dim) {
@@ -329,11 +333,14 @@ public final class TeamHud {
         String title = target.getGameProfile().getName() + (free ? " · " + tr("rysteams.card.free") : "");
         String sub = tr("rysteams.card.hint", (int) mc.player.distanceTo(target));
         boolean invite = free && TeamClient.can(works.repka.rysteams.api.Permission.INVITE);
-        String inviteLabel = tr("rysteams.card.invite", works.repka.ryscore.action.Answers.acceptKey()), pingLabel = tr("rysteams.card.ping", ClientEntry.PING.getTranslatedKeyMessage().getString());
+        String inviteLabel = tr("rysteams.card.invite", works.repka.ryscore.action.Answers.acceptKey());
+        // пинг без клавиши по умолчанию: плашка только у того, кто клавишу назначил
+        String pingKey = ClientEntry.keyName(ClientEntry.PING);
+        String pingLabel = pingKey == null ? "" : tr("rysteams.card.ping", pingKey);
         int textW = (int) Math.ceil(Math.max(Draw.labelWidth(title, 12.5f, Weight.SEMIBOLD), Draw.labelWidth(sub, 11, Weight.REGULAR)));
         int iw = invite ? (int) Math.ceil(Draw.labelWidth(inviteLabel, 12, Weight.SEMIBOLD)) + 12 : 0;
-        int pw = (int) Math.ceil(Draw.labelWidth(pingLabel, 12, Weight.REGULAR)) + 10;
-        int w = 6 + textW + 5 + iw + (invite ? 3 : 0) + pw + 6, h = 23;
+        int pw = pingKey == null ? 0 : (int) Math.ceil(Draw.labelWidth(pingLabel, 12, Weight.REGULAR)) + 10;
+        int w = 6 + textW + 5 + iw + (invite && pw > 0 ? 3 : 0) + pw + (iw + pw > 0 ? 6 : 1), h = 23;
         int[] anchor = project(mc, g, target.getX(), target.getY() + target.getBbHeight() + 0.55, target.getZ());
         int x = anchor == null ? (g.guiWidth() - w) / 2 : anchor[0] - w / 2;
         int y = anchor == null ? g.guiHeight() / 2 + 14 : Math.max(10, anchor[1] - h);
@@ -347,8 +354,10 @@ public final class TeamHud {
             Draw.label(g, inviteLabel, bx + 6, y + 11.5f, 12, Weight.SEMIBOLD, t.c("accent.text"));
             bx += iw + 3;
         }
-        Draw.roundBox(g, bx, y + 4, pw, 15, 4f, t.c("button.bg"), t.c("button.border"));
-        Draw.label(g, pingLabel, bx + 5, y + 11.5f, 12, Weight.REGULAR, t.c("text.primary"));
+        if (pw > 0) {
+            Draw.roundBox(g, bx, y + 4, pw, 15, 4f, t.c("button.bg"), t.c("button.border"));
+            Draw.label(g, pingLabel, bx + 5, y + 11.5f, 12, Weight.REGULAR, t.c("text.primary"));
+        }
     }
 
     // --- панель подписей пинга ---

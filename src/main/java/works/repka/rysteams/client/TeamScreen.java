@@ -728,7 +728,8 @@ public final class TeamScreen extends ScaledScreen {
             }
             ry += cardH + 5;
         }
-        String keys = tr("rysteams.help.short", ClientEntry.OPEN.getTranslatedKeyMessage().getString(), ClientEntry.PING.getTranslatedKeyMessage().getString());
+        String pingKey = ClientEntry.keyName(ClientEntry.PING);
+        String keys = tr("rysteams.help.keys", ClientEntry.OPEN.getTranslatedKeyMessage().getString()) + (pingKey == null ? "" : " · " + tr("rysteams.hud.ping", pingKey));
         List<String> hint = Draw.wrapLabel(keys, w, 11, Weight.REGULAR, 3);
         float hy = y + h - (hint.size() - 1) * 8.25f - 4;
         for (String line : hint) {

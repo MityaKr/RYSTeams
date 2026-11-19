@@ -240,5 +240,9 @@
   "rysteams.map.remove": "Remove",
   "rysteams.map.ally_sub": "Mark of ally %s",
   "rysteams.map.audience.team": "Team",
-  "rysteams.map.audience.allies": "Team and allies"
+  "rysteams.map.audience.allies": "Team and allies",
+  "rysteams.help.keys": "%s: team · ping: the family wheel and the map",
+  "rysteams.action.ping": "Ping the team",
+  "rysteams.action.no_team": "No team",
+  "rysteams.action.no_right": "No right to ping"
 }
