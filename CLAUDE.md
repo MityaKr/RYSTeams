@@ -2,7 +2,7 @@
 
 Замена FTB Teams в семье RYS: команда как общий контекст, без обязательных команд в чате. modid `rysteams`, пакет `works.repka.rysteams`, NeoForge 1.21.1. Автор Дмитрий (MityaYS, RepkaWorks).
 
-Концепт и макеты: `../RYScope/rysteams/` (`docs/01-concept.md`, `docs/02-design.md`, `design/*.dc.html`). Вид и тон семьи: `../RYSCore/CLAUDE.md`, прочитать перед правками интерфейса.
+Концепт и макеты: `../RYSIndex/rysteams/` (`docs/01-concept.md`, `docs/02-design.md`, `design/*.dc.html`). Вид и тон семьи: `../RYSCore/CLAUDE.md`, прочитать перед правками интерфейса.
 
 ## Как работать с автором
 
