@@ -10,7 +10,6 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.neoforged.bus.api.IEventBus;
@@ -25,7 +24,6 @@ import net.neoforged.neoforge.client.settings.KeyConflictContext;
 import net.neoforged.neoforge.common.ModConfigSpec;
 import net.neoforged.neoforge.common.NeoForge;
 import org.lwjgl.glfw.GLFW;
-import works.repka.ryscore.action.Answers;
 import works.repka.ryscore.action.Ring;
 import works.repka.ryscore.ui.Icons;
 import works.repka.rysteams.RYSTeams;
@@ -43,7 +41,8 @@ public final class ClientEntry {
     public static final KeyMapping PING = new KeyMapping("key.rysteams.ping", KeyConflictContext.IN_GAME, InputConstants.UNKNOWN, CATEGORY);
     /*
      * «Принять» и «Отказать» живут в ядре (RYSCore 1.14, Answers.ACCEPT и DECLINE, умолчания Y и N): они отвечают на приглашение
-     * кнопками уведомления, а когда отвечать не на что, «Принять» зовёт в команду игрока под прицелом (запасной обработчик).
+     * кнопками уведомления. Запасного «позвать игрока под прицелом» на Y больше нет (разбор логики 19.11): Y жмут ради других
+     * модов, глядя на соседа; пригласить можно в окне команды.
      */
     /** «С нуля» без клавиши по умолчанию: ответ остаётся кнопкой на уведомлении приглашения. */
     public static final KeyMapping FRESH = new KeyMapping("key.rysteams.fresh", KeyConflictContext.IN_GAME, InputConstants.UNKNOWN, CATEGORY);
@@ -90,7 +89,6 @@ public final class ClientEntry {
                 return 1;
             })));
         NeoForge.EVENT_BUS.addListener(ClientEntry::onScroll);
-        Answers.onAccept(ClientEntry::inviteLooked);
         // слой «Команда», подписи в мире и пункты пинга на карте семьи (Т2); без RYSMap ядро их просто хранит
         TeamMap.register();
         registerActions();
@@ -175,18 +173,6 @@ public final class ClientEntry {
         if (!pingHeld) return;
         pingChoice = Math.floorMod(pingChoice + (e.getScrollDeltaY() < 0 ? 1 : -1), PING_KINDS.length);
         e.setCanceled(true);
-    }
-
-    /**
-     * «Принять» ядра, когда нет уведомления с ответом: зовёт в команду игрока под прицелом.
-     * @return съедено ли нажатие
-     */
-    private static boolean inviteLooked() {
-        if (Minecraft.getInstance().player == null) return false;
-        Player target = TeamHud.lookedAtPlayer();
-        if (target == null) return false;
-        if (TeamClient.can(Permission.INVITE)) TeamClient.action("invite", "player", target.getUUID());
-        return true;
     }
 
     /** Клавиши ответа срабатывают, только пока плашка приглашения на экране: иначе их нажимали бы случайно. */

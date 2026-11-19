@@ -332,15 +332,13 @@ public final class TeamHud {
         for (TeamClient.Online o : TeamClient.online) if (o.id().equals(target.getUUID())) free = o.free();
         String title = target.getGameProfile().getName() + (free ? " · " + tr("rysteams.card.free") : "");
         String sub = tr("rysteams.card.hint", (int) mc.player.distanceTo(target));
-        boolean invite = free && TeamClient.can(works.repka.rysteams.api.Permission.INVITE);
-        String inviteLabel = tr("rysteams.card.invite", works.repka.ryscore.action.Answers.acceptKey());
+        // Y больше не зовёт под прицелом (разбор логики 19.11): плашки «Пригласить · Y» нет, пригласить можно в окне команды
         // пинг без клавиши по умолчанию: плашка только у того, кто клавишу назначил
         String pingKey = ClientEntry.keyName(ClientEntry.PING);
         String pingLabel = pingKey == null ? "" : tr("rysteams.card.ping", pingKey);
         int textW = (int) Math.ceil(Math.max(Draw.labelWidth(title, 12.5f, Weight.SEMIBOLD), Draw.labelWidth(sub, 11, Weight.REGULAR)));
-        int iw = invite ? (int) Math.ceil(Draw.labelWidth(inviteLabel, 12, Weight.SEMIBOLD)) + 12 : 0;
         int pw = pingKey == null ? 0 : (int) Math.ceil(Draw.labelWidth(pingLabel, 12, Weight.REGULAR)) + 10;
-        int w = 6 + textW + 5 + iw + (invite && pw > 0 ? 3 : 0) + pw + (iw + pw > 0 ? 6 : 1), h = 23;
+        int w = 6 + textW + 5 + pw + (pw > 0 ? 6 : 1), h = 23;
         int[] anchor = project(mc, g, target.getX(), target.getY() + target.getBbHeight() + 0.55, target.getZ());
         int x = anchor == null ? (g.guiWidth() - w) / 2 : anchor[0] - w / 2;
         int y = anchor == null ? g.guiHeight() / 2 + 14 : Math.max(10, anchor[1] - h);
@@ -349,11 +347,6 @@ public final class TeamHud {
         Draw.label(g, title, x + 6, y + 7.5f, 12.5f, Weight.SEMIBOLD, t.beveled() ? 0xFFFFFFFF : t.c("text.primary"));
         Draw.label(g, sub, x + 6, y + 15.5f, 11, Weight.REGULAR, t.beveled() ? 0xFFC0C0C0 : t.c("text.muted"));
         int bx = x + 6 + textW + 5;
-        if (invite) {
-            Draw.round(g, bx, y + 4, iw, 15, 4f, t.c("accent"));
-            Draw.label(g, inviteLabel, bx + 6, y + 11.5f, 12, Weight.SEMIBOLD, t.c("accent.text"));
-            bx += iw + 3;
-        }
         if (pw > 0) {
             Draw.roundBox(g, bx, y + 4, pw, 15, 4f, t.c("button.bg"), t.c("button.border"));
             Draw.label(g, pingLabel, bx + 5, y + 11.5f, 12, Weight.REGULAR, t.c("text.primary"));
