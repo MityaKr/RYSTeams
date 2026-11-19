@@ -56,13 +56,14 @@ public final class TeamMap implements MapApi.Layer, Labels.Source {
         for (int i = 0; i < kinds.length; i++) {
             String kind = kinds[i];
             ResourceLocation id = i == 0 ? MAP_PING : ResourceLocation.fromNamespaceAndPath(RYSTeams.MODID, "ping_" + kind);
-            MapApi.get().menu(MapApi.MenuItem.builder(id, Component.translatable("rysteams.map.ping", Component.translatable("rysteams.ping." + kind)))
-                .icon(i == 1 ? Icons.Shape.WARN : Icons.Shape.BELL).order(10 + i)
+            // пинги в подменю «Пинг ›» карты (отзыв автора 19.11), подписи короткие: «Сюда», «Опасно»
+            MapApi.get().menu(MapApi.MenuItem.builder(id, Component.translatable("rysteams.map.ping_item." + kind))
+                .icon(i == 1 ? Icons.Shape.WARN : Icons.Shape.BELL).order(11 + i).group(MapApi.PING_GROUP)
                 .visible(s -> TeamClient.team != null).enabled(s -> TeamClient.can(Permission.PING))
                 .run(s -> ping(kind, s)).build());
         }
         MapApi.get().menu(MapApi.MenuItem.builder(ResourceLocation.fromNamespaceAndPath(RYSTeams.MODID, "mark"), Component.translatable("rysteams.map.mark_here"))
-            .icon(Icons.Shape.FLAG).order(15)
+            .icon(Icons.Shape.FLAG).order(2)
             .visible(s -> TeamClient.team != null).enabled(s -> TeamClient.can(Permission.EDIT_MARKS))
             .run(TeamMap::markHere).build());
     }

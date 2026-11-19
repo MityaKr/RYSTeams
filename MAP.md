@@ -2,7 +2,7 @@
 
 Собрана `_shared/tools/make-map.py` 2026-11-19. Руками не править: после структурных правок пересобрать.
 
-Java: 26 файлов, 7750 строк. Переводы: `src/main/resources/assets/rysteams/lang/en_us.json`, `src/main/resources/assets/rysteams/lang/ru_ru.json`.
+Java: 26 файлов, 7751 строк. Переводы: `src/main/resources/assets/rysteams/lang/en_us.json`, `src/main/resources/assets/rysteams/lang/ru_ru.json`.
 Читать сначала: `CLAUDE.md`, `README.md`.
 
 ## Точки входа
@@ -36,7 +36,7 @@ Java: 26 файлов, 7750 строк. Переводы: `src/main/resources/as
 - `ClientEntry` 203 — Клиентская часть: клавиши, слой поверх мира, сброс при выходе.
 - `TeamClient` 295 — Что клиент знает о командах.
 - `TeamHud` 391 — Всё, что видно поверх мира: участники, метки и пинги, приглашение, карточка игрока, панель подписей.
-- `TeamMap` 378 — Команда на карте семьи (план карты, Т2; ядро map.MapApi и world.Labels, памятка RYSMap/docs/neighbors.md).
+- `TeamMap` 379 — Команда на карте семьи (план карты, Т2; ядро map.MapApi и world.Labels, памятка RYSMap/docs/neighbors.md).
 - `TeamNotices` 73 — Приглашение и строки команд в общих уведомлениях семьи (RYSCore Notice, макет _audit/notify, вариант A): справа вверху, в колонке тостов игры, поверх окон.
 - `TeamScreen` 1440 — Экран команды, размеры из rysteams/design: панель 1200×728 макета, в единицах GUI 600×364.
 
