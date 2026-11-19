@@ -2,7 +2,7 @@
 
 Собрана `_shared/tools/make-map.py` 2026-11-19. Руками не править: после структурных правок пересобрать.
 
-Java: 26 файлов, 7749 строк. Переводы: `src/main/resources/assets/rysteams/lang/en_us.json`, `src/main/resources/assets/rysteams/lang/ru_ru.json`.
+Java: 26 файлов, 7750 строк. Переводы: `src/main/resources/assets/rysteams/lang/en_us.json`, `src/main/resources/assets/rysteams/lang/ru_ru.json`.
 Читать сначала: `CLAUDE.md`, `README.md`.
 
 ## Точки входа
@@ -17,7 +17,7 @@ Java: 26 файлов, 7749 строк. Переводы: `src/main/resources/as
 ## `src/autotest/java` — пакет `works.repka.rysteams.dev`
 
 **(корень)** (2)
-- `DuoTest` 213 — Настоящий сервер и два настоящих клиента: приглашение, клавиша Y, права, присутствие, чат.
+- `DuoTest` 214 — Настоящий сервер и два настоящих клиента: приглашение, клавиша Y, права, присутствие, чат.
 - `TeamsAutoTest` 572 — Проверка в игре: создаёт мир, наполняет команду, снимает экраны.
 
 ## `src/main/java` — пакет `works.repka.rysteams`
