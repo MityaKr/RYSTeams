@@ -768,6 +768,7 @@ public final class TeamService {
                 touch(team);
             }
             case "mark_add" -> markAdd(p, team, a);
+            case "mark_edit" -> markEdit(p, team, a, me, name);
             case "mark_del" -> {
                 UUID id = a.getUUID("id");
                 Team.Mark mark = null;
@@ -816,6 +817,15 @@ public final class TeamService {
         }
     }
 
+    /** Измерение действия: из аргумента {@code dim}, если такое есть на сервере (пинг и метка с карты), иначе измерение игрока. */
+    private static String dimension(ServerPlayer p, CompoundTag a) {
+        if (a.contains("dim")) {
+            ResourceLocation id = ResourceLocation.tryParse(a.getString("dim"));
+            if (id != null && p.server.levelKeys().stream().anyMatch(k -> k.location().equals(id))) return id.toString();
+        }
+        return p.level().dimension().location().toString();
+    }
+
     private static void markAdd(ServerPlayer p, Team team, CompoundTag a) {
         if (!team.can(p.getUUID(), Permission.EDIT_MARKS)) {
             denied(p);
@@ -823,8 +833,9 @@ public final class TeamService {
         }
         String title = clip(a.getString("name"));
         if (title.isEmpty()) return;
-        BlockPos pos = p.blockPosition();
-        String dim = p.level().dimension().location().toString();
+        // с карты метка ставится в выбранное место (Т2), клавишей и с экрана команды там, где стоит игрок
+        BlockPos pos = a.contains("x") ? new BlockPos(a.getInt("x"), a.getInt("y"), a.getInt("z")) : p.blockPosition();
+        String dim = dimension(p, a);
         for (Team.Mark m : team.marks) {
             if (m.death()) continue;
             if (m.dimension().equals(dim) && Math.abs(m.x() - pos.getX()) <= 2 && Math.abs(m.y() - pos.getY()) <= 2 && Math.abs(m.z() - pos.getZ()) <= 2) {
@@ -841,6 +852,26 @@ public final class TeamService {
         team.marks.add(new Team.Mark(UUID.randomUUID(), title, dim, pos.getX(), pos.getY(), pos.getZ(), icon, name, ""));
         feed(team, SOURCE_TEAMS, Component.translatable("rysteams.feed.mark", name, title, pos.getX(), pos.getY(), pos.getZ()), icon, false,
             "waypoint:" + dim + ":" + pos.getX() + ":" + pos.getY() + ":" + pos.getZ());
+    }
+
+    /** Правка метки из окна карты (Т2): новое имя и (или) место. Права те же, что на удаление; метку гибели не правят. */
+    private static void markEdit(ServerPlayer p, Team team, CompoundTag a, UUID me, String name) {
+        UUID id = a.getUUID("id");
+        int index = -1;
+        for (int i = 0; i < team.marks.size(); i++) if (team.marks.get(i).id().equals(id)) index = i;
+        if (index < 0) return;
+        Team.Mark m = team.marks.get(index);
+        if (m.death()) return;
+        if (!team.can(me, Permission.EDIT_MARKS) && !m.by().equals(name)) {
+            denied(p);
+            return;
+        }
+        String title = a.contains("name") ? clip(a.getString("name")) : m.name();
+        if (title.isEmpty()) return;
+        int x = a.contains("x") ? a.getInt("x") : m.x(), y = a.contains("y") ? a.getInt("y") : m.y(), z = a.contains("z") ? a.getInt("z") : m.z();
+        if (title.equals(m.name()) && x == m.x() && y == m.y() && z == m.z()) return;
+        team.marks.set(index, new Team.Mark(m.id(), title, m.dimension(), x, y, z, m.icon(), m.by(), m.source(), m.expires(), m.owner()));
+        touch(team);
     }
 
     private static String itemId(ServerPlayer p) {
@@ -1321,7 +1352,8 @@ public final class TeamService {
         x.putString("by", p.getGameProfile().getName());
         x.putInt("color", team.color);
         x.putString("kind", pingKind(a.getString("kind")));
-        x.putString("dim", p.level().dimension().location().toString());
+        // с карты пинг может уйти в другое измерение (Т2): только в существующее
+        x.putString("dim", dimension(p, a));
         x.putInt("x", a.getInt("x"));
         x.putInt("y", a.getInt("y"));
         x.putInt("z", a.getInt("z"));

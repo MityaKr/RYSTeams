@@ -181,6 +181,8 @@ public final class TeamHud {
     // --- метки и пинги в мире ---
 
     private static void worldMarkers(GuiGraphics g, Theme t, Minecraft mc) {
+        // карта рисует подписи в мире сама (Т2): метки, пинги и цель приходят к ней из TeamMap, вторые подписи не нужны
+        if (works.repka.ryscore.world.Labels.present()) return;
         String dim = mc.level.dimension().location().toString();
         long now = System.currentTimeMillis();
         Team team = TeamClient.team;

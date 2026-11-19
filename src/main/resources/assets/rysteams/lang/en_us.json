@@ -226,5 +226,16 @@
   "rysteams.notice.invite_keys": "Invites you to “%s” · %s yes, %s no",
   "rysteams.notice.invite": "Invites you to “%s”",
   "rysteams.notice.accept": "Accept",
-  "rysteams.notice.no": "Decline"
+  "rysteams.notice.no": "Decline",
+  "rysteams.map.layer": "Team",
+  "rysteams.map.ping": "Ping: %s",
+  "rysteams.map.mark_here": "Team mark here",
+  "rysteams.map.mark_name": "Mark",
+  "rysteams.map.mark_by": "set by %s",
+  "rysteams.map.mark_sub": "Mark of team %s",
+  "rysteams.map.death_sub": "Death in team %s",
+  "rysteams.map.row.by": "Set by",
+  "rysteams.map.row.pos": "Place",
+  "rysteams.map.track": "Show the way",
+  "rysteams.map.remove": "Remove"
 }

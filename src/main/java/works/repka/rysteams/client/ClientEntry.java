@@ -80,6 +80,8 @@ public final class ClientEntry {
             })));
         NeoForge.EVENT_BUS.addListener(ClientEntry::onScroll);
         Answers.onAccept(ClientEntry::inviteLooked);
+        // слой «Команда», подписи в мире и пункты пинга на карте семьи (Т2); без RYSMap ядро их просто хранит
+        TeamMap.register();
     }
 
     private static void tick() {

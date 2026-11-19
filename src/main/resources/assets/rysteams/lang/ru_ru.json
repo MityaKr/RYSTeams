@@ -226,5 +226,16 @@
   "rysteams.notice.invite_keys": "Зовёт в «%s» · %s да, %s нет",
   "rysteams.notice.invite": "Зовёт в команду «%s»",
   "rysteams.notice.accept": "Принять",
-  "rysteams.notice.no": "Отказать"
+  "rysteams.notice.no": "Отказать",
+  "rysteams.map.layer": "Команда",
+  "rysteams.map.ping": "Пинг: %s",
+  "rysteams.map.mark_here": "Метка команды здесь",
+  "rysteams.map.mark_name": "Метка",
+  "rysteams.map.mark_by": "поставил %s",
+  "rysteams.map.mark_sub": "Метка команды %s",
+  "rysteams.map.death_sub": "Гибель в команде %s",
+  "rysteams.map.row.by": "Поставил",
+  "rysteams.map.row.pos": "Место",
+  "rysteams.map.track": "Вести путь",
+  "rysteams.map.remove": "Убрать"
 }
