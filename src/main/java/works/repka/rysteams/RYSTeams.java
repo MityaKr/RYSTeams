@@ -119,7 +119,8 @@ public final class RYSTeams {
         @Override
         public Collection<UUID> allies(UUID team) {
             Team t = team(team);
-            return t == null ? List.of() : List.copyOf(t.allies);
+            // неизменяемый вид без копии: зовут проверки привата на каждое действие
+            return t == null ? List.of() : java.util.Collections.unmodifiableSet(t.allies);
         }
 
         @Override

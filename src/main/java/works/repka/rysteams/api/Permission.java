@@ -40,8 +40,16 @@ public enum Permission {
         return name().toLowerCase(Locale.ROOT);
     }
 
+    /** Право по имени или null. Таблица собрана один раз: {@code TeamsApi.can} зовут проверки привата на каждое действие. */
     public static Permission parse(String text) {
-        for (Permission p : values()) if (p.key().equals(text)) return p;
-        return null;
+        return text == null ? null : BY_KEY.get(text);
+    }
+
+    private static final java.util.Map<String, Permission> BY_KEY;
+
+    static {
+        java.util.Map<String, Permission> map = new java.util.HashMap<>();
+        for (Permission p : values()) map.put(p.key(), p);
+        BY_KEY = java.util.Map.copyOf(map);
     }
 }
