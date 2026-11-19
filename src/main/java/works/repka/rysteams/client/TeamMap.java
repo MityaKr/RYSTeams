@@ -28,8 +28,8 @@ import works.repka.rysteams.data.Team;
  * <ul>
  *   <li>Слой «Команда»: пинги участников и союзников (клавиша V или пункт карты), постоянные метки команды с панелью и правкой
  *       из окна карты, места гибели участников (своё ведёт карта), участники, у которых задано «чем занят» (голова с подписью-статусом, только на большой карте).</li>
- *   <li>Подписи в мире: пинги, метки и цель из ленты отдаются источником {@link Labels}; пока его рисует карта
- *       ({@link Labels#present()}), {@link TeamHud} свои подписи не рисует.</li>
+ *   <li>Подписи в мире: метки и цель из ленты отдаются источником {@link Labels}, пинги идут в общий список пингов ядра
+ *       ({@link Labels#ping}, 1.15). Пока их рисует карта ({@link Labels#present()}), {@link TeamHud} свои подписи не рисует.</li>
  *   <li>Пункты меню карты: пинг четырёх видов (первый под id {@code rysmap:ping}, тогда свой пункт карты уступает место) и
  *       метка команды в этом месте.</li>
  * </ul>
@@ -310,13 +310,6 @@ public final class TeamMap implements MapApi.Layer, Labels.Source {
                     .item(TeamClient.icon(m.icon())).color(0xFF000000 | a.color()).text(Component.literal(m.name())).build());
             }
         }
-        for (TeamClient.Ping p : TeamClient.PINGS) {
-            if (!p.dimension().equals(dim)) continue;
-            String kind = Component.translatable("rysteams.ping." + p.kind()).getString().toLowerCase(Locale.ROOT);
-            out.add(Labels.Label.builder(pingId(p)).pos(dimension, p.x() + 0.5, p.y() + 1.2, p.z() + 0.5).kind(Labels.Kind.PING)
-                .icon(p.kind().equals("danger") ? Icons.Shape.WARN : Icons.Shape.BELL).color(0xFF000000 | p.color())
-                .text(Component.literal(p.by() + ": " + kind)).build());
-        }
         TeamClient.Waypoint w = TeamClient.waypoint;
         if (w != null && w.dimension().equals(dim)) {
             out.add(Labels.Label.builder(UUID.nameUUIDFromBytes(("waypoint:" + w.label() + w.x() + ":" + w.y() + ":" + w.z()).getBytes(StandardCharsets.UTF_8)))
@@ -324,6 +317,35 @@ public final class TeamMap implements MapApi.Layer, Labels.Source {
                 .color(0xFF000000 | w.color()).text(Component.literal(w.label())).build());
         }
         return out;
+    }
+
+    // ---- пинги в мире (ядро 1.15) ----
+
+    /** Id пингов RYSTeams в общем списке ядра: снять свои при выходе из мира. */
+    private static final java.util.Set<UUID> WORLD_PINGS = new java.util.HashSet<>();
+
+    /**
+     * Пинг в мире через ядро ({@link Labels#ping}, 1.15): срок жизни как у пинга RYSTeams, кольцо, цвет команды. Клавиша V,
+     * колесо и пункт карты шлют один пакет {@code ping}, поэтому вид у всех один. Пока карты нет, {@link TeamHud} рисует сам.
+     */
+    static void worldPing(TeamClient.Ping p) {
+        ResourceLocation dim = ResourceLocation.tryParse(p.dimension());
+        if (dim == null) return;
+        UUID id = pingId(p);
+        String kind = Component.translatable("rysteams.ping." + p.kind()).getString().toLowerCase(Locale.ROOT);
+        Labels.ping(Labels.Label.builder(id).pos(ResourceKey.create(Registries.DIMENSION, dim), p.x() + 0.5, p.y() + 1.2, p.z() + 0.5)
+            .kind(Labels.Kind.PING).icon(p.kind().equals("danger") ? Icons.Shape.WARN : Icons.Shape.BELL).color(0xFF000000 | p.color())
+            .text(Component.literal(p.by() + ": " + kind)).until(p.until()).build());
+        synchronized (WORLD_PINGS) {
+            WORLD_PINGS.add(id);
+        }
+    }
+
+    static void clearWorldPings() {
+        synchronized (WORLD_PINGS) {
+            Labels.removePings(l -> WORLD_PINGS.contains(l.id()));
+            WORLD_PINGS.clear();
+        }
     }
 
     // ---- помощники ----

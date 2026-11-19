@@ -22,7 +22,7 @@
 * Контракт для других модов лежит в коре: `works.repka.ryscore.team.TeamsApi`. Прямых вызовов между модами семьи нет.
 * Права чужих модов (`TeamsApi.registerPermission`, кор 1.11) хранятся в `Team.modPermissions` только после правки лидером, иначе берутся значения мода из реестра ядра (`Team.modRoles`); строки стоят в таблице прав на экране после своих, столбец лидера закреплён.
 * Переезд с FTB Teams только шагом `teams` ядра (`server.TeamsMigration` поверх `server.FtbImport.merge`, `docs/decisions.md` ADR-1): своё не затирается, файлы FTB читает `migrate.Snbt` ядра.
-* Карта семьи (Т2, `client.TeamMap`, ADR-2): слой «Команда» (пинги, метки, «чем занят»), источник подписей `world.Labels` (при `Labels.present()` `TeamHud` свои подписи в мире не рисует), пункты меню `rysmap:ping`, `rysteams:ping_<вид>`, `rysteams:mark`.
+* Карта семьи (Т2, `client.TeamMap`, ADR-2): слой «Команда» (пинги, метки, «чем занят»), источник подписей `world.Labels` (метки и цель), пинги в мире через `Labels.ping` ядра 1.15 (при `Labels.present()` `TeamHud` свои подписи в мире не рисует), пункты меню `rysmap:ping`, `rysteams:ping_<вид>`, `rysteams:mark`.
 * События `onRoleChanged`, `onAlliesChanged`, `onRenamed` считает `server.ApiEvents` сверкой со снимком команд (при рассылке и раз в секунду), а не вызовами в каждом месте правки.
 
 ## Принятые отступления от концепта

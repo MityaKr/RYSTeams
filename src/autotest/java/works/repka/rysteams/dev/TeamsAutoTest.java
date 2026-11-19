@@ -220,6 +220,11 @@ public final class TeamsAutoTest {
             var dim = mc().level.dimension();
             var layer = works.repka.ryscore.map.MapApi.layers().stream().filter(l -> l.id().equals(works.repka.rysteams.client.TeamMap.ID)).findFirst().orElseThrow();
             check("карта: пинг с карты пришёл и стоит на слое", layer.markers(dim).stream().anyMatch(m -> m.kind() == works.repka.ryscore.map.MapApi.Kind.PING && m.x() == 10.5 && m.z() == 10.5));
+            check("мир: тот же пинг в общем списке пингов ядра (Labels.ping, 1.15), с кольцом и сроком", works.repka.ryscore.world.Labels.pings().stream()
+                .anyMatch(l -> l.x() == 10.5 && l.z() == 10.5 && l.ring() && l.until() > System.currentTimeMillis()));
+            check("мир: подписи пинга нет в источнике слоя (одна подпись)", works.repka.ryscore.world.Labels.sources().stream()
+                .filter(s -> !s.id().equals(works.repka.ryscore.world.Labels.PINGS))
+                .noneMatch(s -> s.labels(dim).stream().anyMatch(l -> l.kind() == works.repka.ryscore.world.Labels.Kind.PING && l.x() == 10.5)));
             check("карта: метку переименовали из окна карты", TeamClient.team.marks.stream().anyMatch(m -> m.name().equals("Портал")));
             check("карта: метку открыли союзу", TeamClient.team.marks.stream().anyMatch(m -> m.name().equals("Портал") && m.allies()));
         }, 2);

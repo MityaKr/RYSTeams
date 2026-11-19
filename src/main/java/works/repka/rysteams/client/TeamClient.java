@@ -86,6 +86,7 @@ public final class TeamClient {
         restore = "";
         PRESENCE.clear();
         PINGS.clear();
+        TeamMap.clearWorldPings();
         waypoint = null;
         toast = null;
         inviteShownUntil = 0;
@@ -102,8 +103,13 @@ public final class TeamClient {
             case "lobby" -> lobby(t);
             case "lobby_delta" -> lobbyDelta(t);
             case "presence" -> presence(t);
-            case "ping" -> PINGS.add(new Ping(t.getString("by"), t.getInt("color"), t.getString("kind"), t.getString("dim"),
-                t.getInt("x"), t.getInt("y"), t.getInt("z"), System.currentTimeMillis() + ClientEntry.PING_SECONDS.get() * 1000L));
+            case "ping" -> {
+                Ping p = new Ping(t.getString("by"), t.getInt("color"), t.getString("kind"), t.getString("dim"),
+                    t.getInt("x"), t.getInt("y"), t.getInt("z"), System.currentTimeMillis() + ClientEntry.PING_SECONDS.get() * 1000L);
+                PINGS.add(p);
+                // один пинг и один вид (разбор логики 19.11, пункт 4): в мире его рисует карта из пингов ядра (Labels.ping, 1.15)
+                TeamMap.worldPing(p);
+            }
             case "toast" -> toast(text(t.getString("text")), t.getBoolean("bad"));
             case "admin" -> {
                 Minecraft mc = Minecraft.getInstance();
