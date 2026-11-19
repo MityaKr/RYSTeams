@@ -90,7 +90,8 @@ public final class DuoTest {
     }
 
     private static void shot(String name) {
-        step("clean", () -> mc().getToasts().clear(), 2);
+        // night-1119: clear() убирал и карточку приглашения, а Y ядра отвечает только на видимую карточку
+        step("clean", () -> { if (!name.contains("invite")) mc().getToasts().clear(); }, 2);
         step("shot " + name, () -> Screenshot.grab(mc().gameDirectory, "duo_" + ROLE + "_" + (shots++) + "_" + name + ".png", mc().getMainRenderTarget(), m -> {}), 4);
     }
 
