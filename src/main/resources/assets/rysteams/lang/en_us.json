@@ -244,5 +244,8 @@
   "rysteams.help.keys": "%s: team · ping: the family wheel and the map",
   "rysteams.action.ping": "Ping the team",
   "rysteams.action.no_team": "No team",
-  "rysteams.action.no_right": "No right to ping"
+  "rysteams.action.no_right": "No right to ping",
+  "rysteams.dock": "Team",
+  "rysteams.dock.solo": "No team: create or join one",
+  "rysteams.dock.team": "%s · players: %s"
 }

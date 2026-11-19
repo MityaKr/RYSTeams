@@ -92,6 +92,19 @@ public final class ClientEntry {
         // слой «Команда», подписи в мире и пункты пинга на карте семьи (Т2); без RYSMap ядро их просто хранит
         TeamMap.register();
         registerActions();
+        // своя плитка панели семьи (разбор логики 19.11, раздел 5, пункт 3). Id совпадает с ключом кнопки FTB Library из
+        // sidebar_buttons/team.json: на панели семьи та кнопка скрыта, а в сборке с FTB Library и без хозяина панели остаётся она
+        modBus.addListener((net.neoforged.fml.event.lifecycle.FMLClientSetupEvent e) -> e.enqueueWork(() ->
+            works.repka.ryscore.dock.DockButton.builder("rysteams_team")
+                .label(Component.translatable("rysteams.dock")).description(ClientEntry::dockDescription)
+                .tile(0xFF7A4FD1).icon(Icons.Shape.USERS).key(OPEN).order(10).action(() -> Minecraft.getInstance().setScreen(new TeamScreen()))
+                .register()));
+    }
+
+    /** Вторая строка плитки: команда и сколько в ней игроков, без команды приглашение её завести. */
+    private static Component dockDescription() {
+        if (TeamClient.team == null) return Component.translatable("rysteams.dock.solo");
+        return Component.translatable("rysteams.dock.team", TeamClient.team.name, TeamClient.team.members.size());
     }
 
     /** Пинг в колесе семьи: сектор открывает список видов, как держать клавишу и листать (разбор логики 19.11, раздел 5). */
