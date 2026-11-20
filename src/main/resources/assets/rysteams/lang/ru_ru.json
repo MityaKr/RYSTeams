@@ -246,6 +246,7 @@
   "rysteams.map.audience.team": "Команда",
   "rysteams.map.audience.allies": "Команда и союз",
   "rysteams.help.keys": "%s: команда · пинг: колесо семьи и карта",
+  "rysteams.help.keys.unbound": "команда: панель семьи и колесо · пинг: колесо и карта",
   "rysteams.action.ping": "Пинг команде",
   "rysteams.action.ping.short": "Пинг",
   "rysteams.action.no_team": "Нет команды",

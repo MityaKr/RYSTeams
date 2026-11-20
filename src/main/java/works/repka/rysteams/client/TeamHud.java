@@ -130,14 +130,15 @@ public final class TeamHud {
         Draw.label(g, name, x + 19, cy, 12.5f, Weight.SEMIBOLD, text);
         float nameW = Draw.labelWidth(name, 12.5f, Weight.SEMIBOLD);
         Draw.label(g, " · " + tr("rysteams.count.online", online), x + 19 + nameW, cy, 11, Weight.REGULAR, muted);
-        String key = ClientEntry.OPEN.getTranslatedKeyMessage().getString();
-        Draw.label(g, key, x + HUD_W - 6 - Draw.labelWidth(key, 11, Weight.REGULAR), cy, 11, Weight.REGULAR, dim);
+        // окно команды без клавиши по умолчанию (панель семьи и колесо): клавишу пишем, только если её назначили
+        String key = ClientEntry.keyName(ClientEntry.OPEN);
+        if (key != null) Draw.label(g, key, x + HUD_W - 6 - Draw.labelWidth(key, 11, Weight.REGULAR), cy, 11, Weight.REGULAR, dim);
         int rowY = y + 6 + 9 + 3;
         for (int i = 0; i < visible; i++) {
             row(g, t, mc, team, shown.get(i), x + 6, rowY, HUD_W - 12, text, muted, dim);
             rowY += 23;
         }
-        String left = more > 0 ? "+" + more : tr("rysteams.hud.open", key);
+        String left = more > 0 ? "+" + more : key != null ? tr("rysteams.hud.open", key) : "";
         // пинг без клавиши по умолчанию (колесо и карта): подсказку пишем, только если клавишу назначили
         String pingKey = ClientEntry.keyName(ClientEntry.PING);
         float hy = rowY + 3.5f;

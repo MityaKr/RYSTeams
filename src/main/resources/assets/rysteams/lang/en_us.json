@@ -246,6 +246,7 @@
   "rysteams.map.audience.team": "Team",
   "rysteams.map.audience.allies": "Team and allies",
   "rysteams.help.keys": "%s: team · ping: the family wheel and the map",
+  "rysteams.help.keys.unbound": "team: the family panel and the wheel · ping: the wheel and the map",
   "rysteams.action.ping": "Ping the team",
   "rysteams.action.ping.short": "Ping",
   "rysteams.action.no_team": "No team",

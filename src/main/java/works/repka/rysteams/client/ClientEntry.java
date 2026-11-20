@@ -24,6 +24,7 @@ import net.neoforged.neoforge.client.settings.KeyConflictContext;
 import net.neoforged.neoforge.common.ModConfigSpec;
 import net.neoforged.neoforge.common.NeoForge;
 import org.lwjgl.glfw.GLFW;
+import works.repka.ryscore.action.KeyDefaults;
 import works.repka.ryscore.action.Ring;
 import works.repka.ryscore.ui.Icons;
 import works.repka.rysteams.RYSTeams;
@@ -32,8 +33,11 @@ import works.repka.rysteams.api.Permission;
 /** Клиентская часть: клавиши, слой поверх мира, сброс при выходе. */
 public final class ClientEntry {
     private static final String CATEGORY = "key.categories.rysteams";
-    /** В игре T открывает чат, поэтому экран команды на G. */
-    public static final KeyMapping OPEN = new KeyMapping("key.rysteams.open", KeyConflictContext.IN_GAME, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_G, CATEGORY);
+    /**
+     * Окно команды без клавиши по умолчанию (автор 20.11, вопрос 2 разбора логики 19.11): G делят Curios и семь модов сборки.
+     * Окно открывается с панели семьи и из колеса; клавишу можно назначить в управлении.
+     */
+    public static final KeyMapping OPEN = new KeyMapping("key.rysteams.open", KeyConflictContext.IN_GAME, InputConstants.UNKNOWN, CATEGORY);
     /**
      * Пинг без клавиши по умолчанию (разбор логики 19.11, раздел 5): V делят десять модов сборки, NeoForge жмёт все действия на
      * клавише. Пинг есть в колесе ({@code rysteams:ping}) и на карте; кто назначит клавишу, получит прежнее «держать и листать».
@@ -74,6 +78,10 @@ public final class ClientEntry {
             e.register(PING);
             e.register(FRESH);
         });
+        // у игравших прежние умолчания G, V и U остались в options.txt: ядро снимает их один раз, своё назначение не трогает
+        KeyDefaults.retire("rysteams.open.g", OPEN, "key.keyboard.g");
+        KeyDefaults.retire("rysteams.ping.v", PING, "key.keyboard.v");
+        KeyDefaults.retire("rysteams.fresh.u", FRESH, "key.keyboard.u");
         modBus.addListener((RegisterGuiLayersEvent e) ->
             e.registerAboveAll(ResourceLocation.fromNamespaceAndPath(RYSTeams.MODID, "hud"), TeamHud::render));
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post e) -> tick());
