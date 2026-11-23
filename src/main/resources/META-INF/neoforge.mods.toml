@@ -7,6 +7,8 @@ modId = "${mod_id}"
 version = "${mod_version}"
 displayName = "${mod_name}"
 authors = "${mod_authors}"
+logoFile = "rysteams.png"
+logoBlur = false
 description = '''
 Teams without chat commands: one screen, invites by click, shared feed, pings, marks and board.
 '''
