@@ -104,10 +104,10 @@ public final class FtbImport {
                 existing++;
                 String diff = diff(f, own, world, server);
                 if (diff.isEmpty()) {
-                    report.skipped(own.name, "уже есть");
+                    report.skipped(own.name, Say.t("exists", "already exists"));
                 } else {
                     conflicts++;
-                    report.skipped(own.name, "уже есть, состав в RYSTeams другой (" + diff + "), оставлена как есть");
+                    report.skipped(own.name, Say.t("exists_differs", "already exists, the RYSTeams roster differs (%s), left as is", diff));
                 }
                 continue;
             }
@@ -119,7 +119,7 @@ public final class FtbImport {
                 if (other != null) {
                     conflicts++;
                     String where = store.teams.containsKey(other) ? store.teams.get(other).name : newNames.getOrDefault(other, other.toString());
-                    report.line(f.name() + ": " + nameOf(world, server, player) + " уже в команде " + where + ", остался там");
+                    report.line(Say.t("in_other_team", "%s: %s is already in team %s and stayed there", f.name(), nameOf(world, server, player), where));
                     continue;
                 }
                 // когда игрок заходил, FTB не хранит: считаем, что сейчас, иначе автопередача сразу сместит лидера
@@ -127,16 +127,16 @@ public final class FtbImport {
             }
             if (team.members.isEmpty()) {
                 skipped++;
-                report.skipped(f.name(), "все игроки уже в командах RYSTeams");
+                report.skipped(f.name(), Say.t("all_placed", "all players are already in RYSTeams teams"));
                 continue;
             }
             // владелец мог уже состоять в другой команде: лидером становится старший из оставшихся
             TeamService.ensureLeader(team);
             String name = TeamService.freeNameBy(f.name(), n -> nameTaken(store, newNames, n));
-            if (!name.equals(f.name())) report.line(f.name() + ": название занято, стало " + name);
+            if (!name.equals(f.name())) report.line(Say.t("renamed", "%s: the name was taken, now %s", f.name(), name));
             team.name = name;
             int max = works.repka.rysteams.TeamsConfig.maxMembers();
-            if (max > 0 && team.members.size() > max) report.line(name + ": перенесена сверх лимита участников, " + team.members.size() + " из " + max);
+            if (max > 0 && team.members.size() > max) report.line(Say.t("over_limit", "%s: migrated over the member limit, %s of %s", name, team.members.size(), max));
             created.add(team);
             newNames.put(team.id, name);
             for (UUID id : team.members.keySet()) taken.put(id, team.id);
@@ -181,7 +181,7 @@ public final class FtbImport {
                 UUID other = taken.get(player);
                 if (other == null) {
                     if (fresh.contains(f.id())) {
-                        report.line(live.get(f.id()).name + ": союзник " + nameOf(world, server, player) + " без команды, союз в RYSTeams только между командами");
+                        report.line(Say.t("ally_no_team", "%s: ally %s has no team, an RYSTeams alliance exists only between teams", live.get(f.id()).name, nameOf(world, server, player)));
                     }
                     continue;
                 }
@@ -201,11 +201,11 @@ public final class FtbImport {
                 if (ta.allies.contains(b)) continue;
                 if (trust.getOrDefault(b, Map.of()).containsKey(a)) {
                     alliances.add(new UUID[] {a, b});
-                    report.line(ta.name + " и " + tb.name + ": союзники в FTB, стали союзниками");
+                    report.line(Say.t("allies_both", "%s and %s: allies in FTB, became allies", ta.name, tb.name));
                 } else {
                     offers.add(new Offer(a, b));
-                    report.line(ta.name + " доверяла " + nameOf(world, server, t.getValue()) + " из " + tb.name
-                        + ", а " + tb.name + " ей нет: союз в RYSTeams взаимный, " + tb.name + " получила предложение союза");
+                    report.line(Say.t("ally_offer", "%s trusted %s of %s, but %s did not trust it back: an RYSTeams alliance is mutual, %s got an alliance offer",
+                        ta.name, nameOf(world, server, t.getValue()), tb.name, tb.name, tb.name));
                 }
             }
         }
@@ -226,8 +226,8 @@ public final class FtbImport {
         for (UUID p : all) {
             Role was = f.members().get(p);
             Team.Member now = own.members.get(p);
-            if (was != null && now == null) out.add("нет " + nameOf(world, server, p));
-            else if (was == null) out.add("новый " + now.name);
+            if (was != null && now == null) out.add("missing " + nameOf(world, server, p));
+            else if (was == null) out.add("new " + now.name);
             else if (was != now.role) out.add(now.name + " " + was.key() + " → " + now.role.key());
         }
         out.sort(null);
@@ -248,13 +248,13 @@ public final class FtbImport {
             try {
                 FtbTeam team = convert(Snbt.readObject(file), name);
                 if (team == null) {
-                    report.skipped(name, "нет id или ролей");
+                    report.skipped(name, Say.t("no_id", "no id or roles"));
                     continue;
                 }
                 out.add(team);
             } catch (IOException | RuntimeException e) {
-                RYSTeams.LOG.warn("{} команда FTB {} не прочитана: {}", Migrations.TAG, name, e.toString());
-                report.partial("файл " + name + " не прочитан: " + e.getMessage());
+                RYSTeams.LOG.warn("{} FTB team {} could not be read: {}", Migrations.TAG, name, e.toString());
+                report.partial(Say.t("file_unread", "file %s could not be read: %s", name, e.getMessage()));
             }
         }
         return out;
@@ -305,7 +305,7 @@ public final class FtbImport {
                 String name = Snbt.string(Snbt.readObject(file), "player_name", "");
                 if (!name.isBlank()) return name;
             } catch (IOException | RuntimeException e) {
-                RYSTeams.LOG.warn("Файл игрока FTB {} не прочитан: {}", file.getFileName(), e.toString());
+                RYSTeams.LOG.warn("FTB player file {} could not be read: {}", file.getFileName(), e.toString());
             }
         }
         var cache = server == null ? null : server.getProfileCache();

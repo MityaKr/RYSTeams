@@ -69,11 +69,11 @@ public final class TeamsMigration implements Migrations.Step {
 
     @Override
     public Migrations.Report run(Migrations.Context c) throws Exception {
-        Path world = Objects.requireNonNull(c.worldDir(), "нет папки мира");
+        Path world = Objects.requireNonNull(c.worldDir(), "no world folder");
         TeamStore store = storage.store(c);
         Migrations.Report report = Migrations.Report.create();
-        if (store.ftbImported) report.line("команды уже переносили командой: только сверка");
-        if (c.isLoaded("ftbteams")) report.line("FTB Teams ещё стоит: команды, созданные в нём после переезда, не переносятся");
+        if (store.ftbImported) report.line(Say.t("already_run", "the teams were already migrated by command: reconciliation only"));
+        if (c.isLoaded("ftbteams")) report.line(Say.t("ftb_still", "FTB Teams is still installed: teams created in it after the migration are not migrated"));
         FtbImport.Result result = FtbImport.merge(world, store, c.server(), report);
         storage.save(c, store);
         TeamService.imported();
@@ -105,7 +105,7 @@ public final class TeamsMigration implements Migrations.Step {
         }
 
         private static MinecraftServer server(Migrations.Context c) {
-            return Objects.requireNonNull(c.server(), "шаг teams идёт только на сервере");
+            return Objects.requireNonNull(c.server(), "the teams step runs only on the server");
         }
     }
 }

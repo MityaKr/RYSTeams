@@ -78,7 +78,7 @@ final class ApiEvents {
             try {
                 call.accept(l);
             } catch (Throwable t) {
-                RYSTeams.LOG.warn("Слушатель команд упал", t);
+                RYSTeams.LOG.warn("Team listener failed", t);
             }
         }
     }

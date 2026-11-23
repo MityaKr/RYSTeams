@@ -148,7 +148,7 @@ class TeamsMigrationTest {
         Migrations.Outcome again = start();
         assertEquals(Migrations.Status.DONE, again.status(), again.toString());
         assertEquals(0L, again.report().counts().get("teams"));
-        assertTrue(again.report().skipped().contains("VENIK: уже есть"), again.toString());
+        assertTrue(again.report().skipped().contains("VENIK: already exists"), again.toString());
         assertEquals(before, snapshot(current));
     }
 
@@ -179,7 +179,7 @@ class TeamsMigrationTest {
         assertEquals(0L, o.report().counts().get("teams"));
         assertEquals(1L, o.report().counts().get("existing"));
         assertEquals(0L, o.report().counts().get("conflicts"));
-        assertTrue(o.report().skipped().contains("VENIK: уже есть"), o.toString());
+        assertTrue(o.report().skipped().contains("VENIK: already exists"), o.toString());
         assertEquals(before, snapshot(current));
     }
 
@@ -194,7 +194,7 @@ class TeamsMigrationTest {
         assertEquals(before, snapshot(current));
         assertEquals(1L, o.report().counts().get("conflicts"));
         String skipped = String.join("\n", o.report().skipped());
-        assertTrue(skipped.contains("officer → member") && skipped.contains("новый"), skipped);
+        assertTrue(skipped.contains("officer → member") && skipped.contains("new"), skipped);
     }
 
     @Test
@@ -209,7 +209,7 @@ class TeamsMigrationTest {
         assertEquals(1, venik.members.size());
         assertEquals(Role.LEADER, venik.members.get(MITYA).role);
         assertEquals(1L, o.report().counts().get("conflicts"));
-        assertTrue(o.report().lines().stream().anyMatch(l -> l.contains("уже в команде Other")), o.toString());
+        assertTrue(o.report().lines().stream().anyMatch(l -> l.contains("is already in team Other")), o.toString());
     }
 
     @Test
@@ -219,7 +219,7 @@ class TeamsMigrationTest {
         Migrations.Outcome o = start();
         assertEquals(Migrations.Status.DONE, o.status());
         assertNull(current.teams.get(VENIK));
-        assertTrue(o.report().skipped().contains("VENIK: все игроки уже в командах RYSTeams"), o.toString());
+        assertTrue(o.report().skipped().contains("VENIK: all players are already in RYSTeams teams"), o.toString());
     }
 
     @Test
@@ -257,7 +257,7 @@ class TeamsMigrationTest {
         Migrations.Outcome fixed = start();
         assertEquals(Migrations.Status.DONE, fixed.status(), fixed.toString());
         assertEquals(1L, fixed.report().counts().get("teams"));
-        assertTrue(fixed.report().skipped().contains("VENIK: уже есть"), fixed.toString());
+        assertTrue(fixed.report().skipped().contains("VENIK: already exists"), fixed.toString());
         assertEquals(2, current.teams.size());
         assertEquals(2, current.teams.get(VENIK).members.size());
         restart();
@@ -311,7 +311,7 @@ class TeamsMigrationTest {
         assertTrue(store.teams.get(bobTeam).allies.isEmpty());
         assertEquals(java.util.List.of(new FtbImport.Offer(bobTeam, VENIK)), r.offers());
         Migrations.Outcome o = start();
-        assertTrue(o.report().lines().stream().anyMatch(l -> l.contains("Bobs доверяла") && l.contains("предложение союза")), o.toString());
+        assertTrue(o.report().lines().stream().anyMatch(l -> l.contains("Bobs trusted") && l.contains("alliance offer")), o.toString());
     }
 
     @Test
@@ -321,7 +321,7 @@ class TeamsMigrationTest {
         Migrations.Outcome o = start();
         assertEquals(Migrations.Status.DONE, o.status());
         assertTrue(current.teams.get(VENIK).allies.isEmpty());
-        assertTrue(o.report().lines().stream().anyMatch(l -> l.contains("без команды")), o.toString());
+        assertTrue(o.report().lines().stream().anyMatch(l -> l.contains("has no team")), o.toString());
     }
 
     @Test

@@ -188,7 +188,7 @@ public final class TeamService {
                 Team.Member m = team.members.get(id);
                 if (m == null) {
                     // рассинхрон: игрок числится в команде, которой о нём неизвестно
-                    RYSTeams.LOG.warn("Игрок {} числился в команде {}, но не в её составе", player.getGameProfile().getName(), team.name);
+                    RYSTeams.LOG.warn("Player {} was listed in team {} but is not in its roster", player.getGameProfile().getName(), team.name);
                     s.byPlayer.remove(id);
                     s.setDirty();
                 } else {
@@ -202,7 +202,7 @@ public final class TeamService {
                 }
             }
         } catch (RuntimeException e) {
-            RYSTeams.LOG.error("Вход игрока {}: ошибка команд", player.getGameProfile().getName(), e);
+            RYSTeams.LOG.error("Player {} join: team error", player.getGameProfile().getName(), e);
         }
         // состояние и лобби уйдут ему в ближайшем тике (игрок уже в списке сервера), остальным строка «+игрок»
         UUID joined = player.getUUID();
@@ -232,12 +232,12 @@ public final class TeamService {
         if (server == null) return;
         ticks++;
         // события контракта (роль, союз, имя) сверкой с прошлым снимком: ловит любые пути правки, в том числе слияние и автопередачу
-        if (ticks % 1200 == 0) safely("события для модов", () -> ApiEvents.check(store()));
-        else if (!DIRTY.isEmpty()) safely("события для модов", () -> ApiEvents.check(store(), DIRTY));
-        if (!DIRTY.isEmpty() || !DIRTY_PLAYERS.isEmpty() || dirtyLobby || !JOINED.isEmpty() || !LEFT.isEmpty()) safely("рассылка состояния", TeamService::flush);
-        if (ticks % 40 == 0) safely("присутствие", () -> Presence.broadcast(server, store()));
-        if (ticks % 200 == 0) safely("сроки", TeamService::expire);
-        if (ticks % 20 == 0) safely("метки гибели", TeamService::expireMarks);
+        if (ticks % 1200 == 0) safely("mod events", () -> ApiEvents.check(store()));
+        else if (!DIRTY.isEmpty()) safely("mod events", () -> ApiEvents.check(store(), DIRTY));
+        if (!DIRTY.isEmpty() || !DIRTY_PLAYERS.isEmpty() || dirtyLobby || !JOINED.isEmpty() || !LEFT.isEmpty()) safely("state broadcast", TeamService::flush);
+        if (ticks % 40 == 0) safely("presence", () -> Presence.broadcast(server, store()));
+        if (ticks % 200 == 0) safely("deadlines", TeamService::expire);
+        if (ticks % 20 == 0) safely("death marks", TeamService::expireMarks);
     }
 
     /** Ошибка в данных одной команды не должна ронять тик сервера. */
@@ -245,7 +245,7 @@ public final class TeamService {
         try {
             r.run();
         } catch (RuntimeException e) {
-            RYSTeams.LOG.error("RYSTeams: {} не выполнено", what, e);
+            RYSTeams.LOG.error("RYSTeams: {} failed", what, e);
         }
     }
 
@@ -333,7 +333,7 @@ public final class TeamService {
                     ModNetwork.send(p, delta);
                 }
             } catch (RuntimeException e) {
-                RYSTeams.LOG.error("Лобби для {} не отправлено", p.getGameProfile().getName(), e);
+                RYSTeams.LOG.error("Lobby was not sent to {}", p.getGameProfile().getName(), e);
             }
         }
         // союзникам тоже: у них список союза и открытые союзу метки этой команды
@@ -348,7 +348,7 @@ public final class TeamService {
             try {
                 ModNetwork.send(p, stateFor(p, shared));
             } catch (RuntimeException e) {
-                RYSTeams.LOG.error("Состояние для {} не отправлено", p.getGameProfile().getName(), e);
+                RYSTeams.LOG.error("State was not sent to {}", p.getGameProfile().getName(), e);
             }
         }
     }
@@ -546,7 +546,7 @@ public final class TeamService {
             try {
                 for (TeamsApi.MergeLine line : l.previewMerge(merge.from, merge.into)) addLine(lines, line.source().getPath(), line.text(), line.question());
             } catch (Throwable t) {
-                RYSTeams.LOG.warn("Предпросмотр слияния: ошибка в слушателе", t);
+                RYSTeams.LOG.warn("Merge preview: listener error", t);
             }
         }
         x.put("lines", lines);
@@ -639,7 +639,7 @@ public final class TeamService {
             dispatch(p, action, a);
         } catch (RuntimeException e) {
             // кривой пакет не должен ронять сервер
-            RYSTeams.LOG.warn("Действие {} от {} не выполнено: {}", action, p.getGameProfile().getName(), e.toString());
+            RYSTeams.LOG.warn("Action {} from {} failed: {}", action, p.getGameProfile().getName(), e.toString());
         }
     }
 
@@ -890,7 +890,7 @@ public final class TeamService {
                 DIRTY.add(m.into);
             }
             case "merge_undo" -> mergeUndo(p, team);
-            default -> RYSTeams.LOG.debug("Неизвестное действие {}", action);
+            default -> RYSTeams.LOG.debug("Unknown action {}", action);
         }
     }
 
@@ -1060,7 +1060,7 @@ public final class TeamService {
             try {
                 l.onJoined(team.id, id, carry);
             } catch (Throwable t) {
-                RYSTeams.LOG.warn("Слушатель вступления упал", t);
+                RYSTeams.LOG.warn("Join listener failed", t);
             }
         }
         if (role != Role.LEADER) feed(team, Component.translatable("rysteams.feed.joined", name));
@@ -1175,7 +1175,7 @@ public final class TeamService {
             try {
                 l.onLeft(team.id, id, keepCopy);
             } catch (Throwable t) {
-                RYSTeams.LOG.warn("Слушатель ухода упал", t);
+                RYSTeams.LOG.warn("Leave listener failed", t);
             }
         }
         touch(team);
@@ -1222,7 +1222,7 @@ public final class TeamService {
                 try {
                     l.onLeft(team.id, id, true);
                 } catch (Throwable t) {
-                    RYSTeams.LOG.warn("Слушатель ухода упал", t);
+                    RYSTeams.LOG.warn("Leave listener failed", t);
                 }
             }
             ServerPlayer player = online(id);
@@ -1236,7 +1236,7 @@ public final class TeamService {
             try {
                 l.onDisbanded(team.id);
             } catch (Throwable t) {
-                RYSTeams.LOG.warn("Слушатель распада упал", t);
+                RYSTeams.LOG.warn("Disband listener failed", t);
             }
         }
         touchLobby();
@@ -1249,12 +1249,12 @@ public final class TeamService {
                 try {
                     l.onJoined(team.id, id, true);
                 } catch (Throwable t) {
-                    RYSTeams.LOG.warn("Слушатель вступления упал", t);
+                    RYSTeams.LOG.warn("Join listener failed", t);
                 }
             }
         }
         int max = TeamsConfig.maxMembers();
-        if (max > 0 && team.members.size() > max) RYSTeams.LOG.warn("Команда {} вернулась из архива сверх лимита: {} из {}", team.name, team.members.size(), max);
+        if (max > 0 && team.members.size() > max) RYSTeams.LOG.warn("Team {} came back from the archive over the limit: {} of {}", team.name, team.members.size(), max);
     }
 
     // --- администратор ---
@@ -1626,7 +1626,7 @@ public final class TeamService {
             try {
                 l.onMerged(fromId, intoId);
             } catch (Throwable t) {
-                RYSTeams.LOG.warn("Слушатель слияния упал", t);
+                RYSTeams.LOG.warn("Merge listener failed", t);
             }
         }
         feed(into, Component.translatable("rysteams.feed.merged", from.name));
@@ -1679,7 +1679,7 @@ public final class TeamService {
                 try {
                     l.onLeft(u.intoId, id, true);
                 } catch (Throwable t) {
-                    RYSTeams.LOG.warn("Слушатель ухода упал", t);
+                    RYSTeams.LOG.warn("Leave listener failed", t);
                 }
             }
         }
@@ -1687,7 +1687,7 @@ public final class TeamService {
             try {
                 l.onMergeUndone(u.fromId, u.intoId);
             } catch (Throwable t) {
-                RYSTeams.LOG.warn("Слушатель отката слияния упал", t);
+                RYSTeams.LOG.warn("Merge undo listener failed", t);
             }
         }
         if (s.teams.containsKey(into.id)) feed(into, Component.translatable("rysteams.feed.merge_undone"));

@@ -64,7 +64,7 @@ public final class RYSTeams {
         NeoForge.EVENT_BUS.addListener((RegisterCommandsEvent e) -> registerCommands(e.getDispatcher()));
         TeamsApi.provide(new Api());
         Migrations.register(new TeamsMigration());
-        LOG.info("RYSTeams загружен");
+        LOG.info("RYSTeams loaded");
     }
 
     /** Реализация контракта кора. */
